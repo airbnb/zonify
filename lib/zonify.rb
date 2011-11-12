@@ -58,7 +58,7 @@ class Capture
       running.map do |host|
         ['CNAME', "#{elb[:prefix]}#{@suffixes[:elb]}", host[:dns]]
       end
-    end.flatten
+    end.flatten(1)
     sg_records = hosts.inject({}) do |acc, kv|
       _, info = kv
       info[:sg].each do |sg|
@@ -71,8 +71,8 @@ class Capture
       hostnames.map do |hostname|
         ['CNAME', "#{sg_ldh}#{@suffixes[:sg]}", hostname]
       end
-    end.flatten
-    [host_records, elb_records, sg_records].flatten
+    end.flatten(1)
+    [host_records, elb_records, sg_records].flatten(1)
   end
 end
 
