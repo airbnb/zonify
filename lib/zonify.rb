@@ -56,7 +56,7 @@ class Capture
     elb_records = elbs.map do |elb|
       running = elb[:instances].map{|i| hosts[i] }.compact
       running.map do |host|
-        ['TXT', "#{elb[:prefix]}#{@suffixes[:elb]}", "host=#{host[:dns]}"]
+        ['TXT', "#{elb[:prefix]}#{@suffixes[:elb]}", "zonify/#{host[:dns]}"]
       end
     end.flatten(1)
     sg_records = hosts.inject({}) do |acc, kv|
@@ -69,7 +69,7 @@ class Capture
     end.map do |sg, hostnames|
       sg_ldh = Zonify.sg_name_to_ldh(sg)
       hostnames.map do |hostname|
-        ['TXT', "#{sg_ldh}#{@suffixes[:sg]}", "host=#{hostname}"]
+        ['TXT', "#{sg_ldh}#{@suffixes[:sg]}", "zonify/#{hostname}"]
       end
     end.flatten(1)
     [host_records, elb_records, sg_records].flatten(1)
