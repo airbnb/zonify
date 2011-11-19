@@ -39,6 +39,7 @@ class Capture
         groups = case
                  when i[:aws_groups] then i[:aws_groups]
                  when i[:groups]     then i[:groups].map{|g| g[:group_name] }
+                 else                     []
                  end
         acc[i[:aws_instance_id]] = { :sg  => groups,
                                      :dns => Zonify.dot_(dns) }
@@ -56,33 +57,33 @@ class Capture
     hosts = instances
     elbs = load_balancers
     host_records = hosts.map do |id,info|
+      name = "#{id}.#{@suffixes[:host]}"
       [ { :type=>'CNAME', :ttl=>86400,
-          :name=>"#{id}.#{@suffixes[:host]}", :data=>info[:dns] },
-        { :type=>'TXT', :ttl=>'100',
-          :name=>"#{@suffixes[:host]}",
-          :data=>"\"zonify // #{info[:dns]}\"" } ]
+          :name=>name,    :data=>info[:dns] },
+        { :type=>'TXT',   :ttl=>100,
+          :name=>"#{@suffixes[:host]}", :data=>"\"zonify // #{name}\"" } ]
     end.flatten
     elb_records = elbs.map do |elb|
-      running = elb[:instances].map{|i| hosts[i] }.compact
+      running = elb[:instances].select{|i| hosts[i] }
       name = "#{elb[:prefix]}.#{@suffixes[:elb]}"
       running.map do |host|
         { :type=>'TXT', :ttl=>100,
-          :name=>name, :data=>"\"zonify // #{host[:dns]}\"" }
+          :name=>name,  :data=>"\"zonify // #{host}.#{@suffixes[:host]}\"" }
       end
     end.flatten
     sg_records = hosts.inject({}) do |acc, kv|
-      _, info = kv
+      id, info = kv
       info[:sg].each do |sg|
         acc[sg] ||= []
-        acc[sg] << info[:dns]
-      end if info[:sg]
+        acc[sg]  << id
+      end
       acc
-    end.map do |sg, hostnames|
+    end.map do |sg, ids|
       sg_ldh = Zonify.sg_name_to_ldh(sg)
       name = "#{sg_ldh}.#{@suffixes[:sg]}"
-      hostnames.map do |hostname|
+      ids.map do |id|
         { :type=>'TXT', :ttl=>100,
-          :name=>name, :data=>"\"zonify // #{hostname}\"" }
+          :name=>name,  :data=>"\"zonify // #{id}.#{@suffixes[:host]}\"" }
       end
     end.flatten
     [host_records, elb_records, sg_records].flatten
@@ -102,13 +103,11 @@ class Sync
   end
   def calculate_changes(captured)
     _, r53_records = retrieve_zone_and_records
-    collated       = Zonify::Sync.collate(captured)
-    qualified      = collated.inject({}) do |acc, pair|
-                       acc[pair[0].sub(/[.]$/, '') + @root] = pair[1]
-                       acc
-                     end
     expanded       = Zonify::Sync.expand_right_aws(r53_records)
-    Zonify::Sync.calculate_changes(qualified, expanded)
+    Zonify::Sync.calculate_changes(qualified(captured), expanded)
+  end
+  def qualified(captured)
+    Zonify::Sync.qualify(captured, @root)
   end
   def sync(captured, comment='Synced with Zonify tool.')
     r53_zone, _ = retrieve_zone_and_records
@@ -193,9 +192,29 @@ class Sync
     def compare_records(a, b)
       as, bs = [a, b].map do |record|
         [:name, :type, :action, :ttl].map{|k| record[k] } <<
-          Zonify::Sync.normRRs(a[:resource_records])
+          Zonify::Sync.normRRs(record[:resource_records])
       end
       as == bs
+    end
+    def qualify(captured, root)
+      collated  = Zonify::Sync.collate(captured)
+      collated.inject({}) do |acc, pair|
+        name, info = pair
+        acc[name.sub(/[.]?$/, root)] = info.inject({}) do |acc_, pair_|
+          type, data = pair_
+          case type
+          when 'TXT'
+            rrs = data[:resource_records].map do |rr|
+              /^"zonify \/\/ /.match(rr) ? rr.sub(/[.]?"$/, root+'"') : rr
+            end
+            acc_[type] = data.merge(:resource_records=>rrs)
+          else
+            acc_[type] = data
+          end
+          acc_
+        end
+        acc
+      end
     end
     # Sometimes, resource_records are a single string; sometimes, an array.
     # The array should be sorted for comparison's sake.
