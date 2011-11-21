@@ -4,36 +4,75 @@ require 'right_aws'
 # Set up for AWS interfaces and access to EC2 instance metadata.
 module Zonify
 
-## Retrieve the EC2 instance ID of this instance.
-#def local_instance_id
-#  `curl -s http://169.254.169.254/latest/meta-data/instance-id`.strip
-#end
-#
-#def instance_id
-#  AWS[:instance_id] ||= RunRun::AWS.local_instance_id
-#end
-#
-#def ec2
-#  AWS[:EC2] ||= RightAws::Ec2.new()
-#end
-#
-#def elb
-#  AWS[:ELB] ||= RightAws::ElbInterface.new()
-#end
 
-class Capture
-  attr_reader :ec2, :elb, :suffixes
+class AWS
+  class << self
+    # Retrieve the EC2 instance ID of this instance.
+    def local_instance_id
+      s = `curl -s http://169.254.169.254/latest/meta-data/instance-id`
+      s.strip if $?.success?
+    end
+    # Initialize all AWS interfaces with the same access keys and logger
+    # (probably what you want to do). These are set up lazily; unused
+    # interfaces will not be initialized.
+    def create(access, secret, logger)
+      a = [RightAws::Ec2, RightAws::ElbInterface, RightAws::Route53Interface]
+      ec2, elb, r53 = a.map do |cls|
+        Proc.new{|| cls.new(access, secret, :logger=>logger) }
+      end
+      Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
+    end
+  end
+  attr_reader :ec2_proc, :elb_proc, :r53_proc
   def initialize(opts={})
-    @ec2             = opts[:ec2]
-    @elb             = opts[:elb]
-    suffixes         = (opts[:suffixes] or {})
-    @suffixes        = {}
-    @suffixes[:host] = (suffixes[:host] or 'inst')
-    @suffixes[:elb]  = (suffixes[:elb]  or  'elb')
-    @suffixes[:sg]   = (suffixes[:sg]   or   'sg')
+    @ec2      = opts[:ec2]
+    @elb      = opts[:elb]
+    @r53      = opts[:r53]
+    @ec2_proc = opts[:ec2_proc]
+    @elb_proc = opts[:elb_proc]
+    @r53_proc = opts[:r53_proc]
+  end
+  def ec2
+    @ec2 ||= @ec2_proc.call
+  end
+  def elb
+    @elb ||= @elb_proc.call
+  end
+  def r53
+    @r53 ||= @r53_proc.call
+  end
+  # Generate DNS entries based on EC2 instances, security groups and ELB load
+  # balancers under the user's AWS account.
+  def ec2_zone
+    Zonify.tree(Zonify.zone(instances, load_balancers))
+  end
+  # Retrieve Route53 zone data -- the zone ID as well as resource records --
+  # relevant to the given suffix. When there is any ambiguity, the zone with
+  # the longest name is chosen.
+  def route53_zone(suffix)
+    relevant_zone = r53.list_hosted_zones.select do |zone|
+      suffix.end_with?(zone[:name])
+    end.sort_by{|zone| zone[:name].length }.last
+    if relevant_zone
+      zone_id = relevant_zone[:aws_id]
+      relevant_records = r53.list_resource_record_sets(zone_id).select do |rr|
+        rr[:name].end_with?(suffix)
+      end
+      [relevant_zone, Zonify.tree_from_right_aws(relevant_records)]
+    end
+  end
+  # Apply a changeset to the records in Route53. The records must all be under
+  # the same zone and suffix.
+  def apply(changes, comment='Synced with Zonify tool.')
+    unless changes.emtpy?
+      suffix  = changes.first[:name] # Works because of longest submatch rule.
+      zone, _ = route53_zone(suffix)
+      r53.change_resource_record_sets(zone[:aws_id], changes, comment)
+    end
+  end
   end
   def instances
-    @ec2.describe_instances.inject({}) do |acc, i|
+    ec2.describe_instances.inject({}) do |acc, i|
       dns = i[:dns_name]
       unless dns.nil? or dns.empty?
         groups = case
@@ -41,8 +80,7 @@ class Capture
                  when i[:groups]     then i[:groups].map{|g| g[:group_name] }
                  else                     []
                  end
-        acc[i[:aws_instance_id]] = { :sg  => groups,
-                                     :dns => Zonify.dot_(dns) }
+        acc[i[:aws_instance_id]] = {:sg => groups, :dns => Zonify.dot_(dns)}
       end
       acc
     end
@@ -53,181 +91,145 @@ class Capture
         :prefix    => Zonify.cut_down_elb_name(elb[:dns_name]) }
     end
   end
-  def zonedata
-    hosts = instances
-    elbs = load_balancers
-    host_records = hosts.map do |id,info|
-      name = "#{id}.#{@suffixes[:host]}"
-      [ { :type=>'CNAME', :ttl=>86400,
-          :name=>name,    :data=>info[:dns] },
-        { :type=>'TXT',   :ttl=>100,
-          :name=>"#{@suffixes[:host]}", :data=>"\"zonify // #{name}\"" } ]
-    end.flatten
-    elb_records = elbs.map do |elb|
-      running = elb[:instances].select{|i| hosts[i] }
-      name = "#{elb[:prefix]}.#{@suffixes[:elb]}"
-      running.map do |host|
-        { :type=>'TXT', :ttl=>100,
-          :name=>name,  :data=>"\"zonify // #{host}.#{@suffixes[:host]}\"" }
-      end
-    end.flatten
-    sg_records = hosts.inject({}) do |acc, kv|
-      id, info = kv
-      info[:sg].each do |sg|
-        acc[sg] ||= []
-        acc[sg]  << id
-      end
-      acc
-    end.map do |sg, ids|
-      sg_ldh = Zonify.sg_name_to_ldh(sg)
-      name = "#{sg_ldh}.#{@suffixes[:sg]}"
-      ids.map do |id|
-        { :type=>'TXT', :ttl=>100,
-          :name=>name,  :data=>"\"zonify // #{id}.#{@suffixes[:host]}\"" }
-      end
-    end.flatten
-    [host_records, elb_records, sg_records].flatten
-  end
-end
-
-class Sync
-  attr_reader :r53, :root, :r53_zone, :r53_records
-  def initialize(root, opts={})
-    @r53  = opts[:r53]
-    @root = Zonify::_dot(Zonify::dot_(root)).freeze
-    clear
-  end
-  def clear
-    @r53_zone    = nil
-    @r53_records = nil
-  end
-  def calculate_changes(captured)
-    _, r53_records = retrieve_zone_and_records
-    expanded       = Zonify::Sync.expand_right_aws(r53_records)
-    Zonify::Sync.calculate_changes(qualified(captured), expanded)
-  end
-  def qualified(captured)
-    Zonify::Sync.qualify(captured, @root)
-  end
-  def sync(captured, comment='Synced with Zonify tool.')
-    r53_zone, _ = retrieve_zone_and_records
-    changes     = calculate_changes(captured)
-    @r53.change_resource_record_sets(@r53_zone[:aws_id], changes, comment)
-  end
-  def retrieve_zone_and_records
-    unless @r53_zone and @r53_records
-      relevant_zone = @r53.list_hosted_zones.select do |zone|
-        @root.end_with?(zone[:name])
-      end.sort_by{|zone| zone[:name].length }.last
-      abort "No relevant zone." unless relevant_zone
-      zone_id = relevant_zone[:aws_id]
-      relevant_records = @r53.list_resource_record_sets(zone_id).select do |rr|
-        rr[:name].end_with?(@root)
-      end
-      @r53_zone, @r53_records = [relevant_zone.freeze, relevant_records.freeze]
-    end
-    [@r53_zone, @r53_records]
-  end
-  class << self
-    # Group records by name and type.
-    def collate(captured)
-      captured.inject({}) do |acc, record|
-        name, type, ttl, data = [ record[:name], record[:type],
-                                  record[:ttl],  record[:data]  ]
-        acc[name]                          ||= {}
-        acc[name][type]                    ||= { :ttl => ttl }
-        acc[name][type][:resource_records] ||= []
-        case type  # Enforce singularity of CNAMEs.
-        when 'CNAME' then acc[name][type][:resource_records] = [data]
-        else              acc[name][type][:resource_records] << data
-        end
-        acc
-      end
-    end
-    # Put RightAWS into a heirarchical hash of hashes, to reduce complexity in
-    # other parts of the program.
-    def expand_right_aws(records)
-      records.inject({}) do |acc, record|
-        name, type, ttl, data = [ record[:name], record[:type],
-                                  record[:ttl],  record[:resource_records] ]
-        acc[name]                          ||= {}
-        acc[name][type]                      = { :ttl => ttl }
-        acc[name][type][:resource_records]   = data
-        acc
-      end
-    end
-    # Old records that have the same element as new records should be left as
-    # is. If they differ in any way, they should be marked for deletion and
-    # the new record marked for creation. Old records not in the new records
-    # should also be marked for deletion. Input records in the expanded format,
-    # not the collapsed, Right AWS format.
-    def calculate_changes(new_records, old_records)
-      create_set = new_records.map do |name, v|
-        old = old_records[name]
-        v.map do |type, data|
-          old_data = ((old and old[type]) or {})
-          unless Zonify::Sync.compare_records(old_data, data)
-            data.merge(:name=>name, :type=>type, :action=>:create)
-          end
-        end.compact
-      end
-      delete_set = old_records.map do |name, v|
-        new = new_records[name]
-        v.map do |type, data|
-          new_data = ((new and new[type]) or {})
-          unless Zonify::Sync.compare_records(data, new_data)
-            data.merge(:name=>name, :type=>type, :action=>:delete)
-          end
-        end.compact
-      end
-      (delete_set.flatten + create_set.flatten).sort_by do |record|
-        # Sort actions so that creation of a record comes immediately after a
-        # deletion.
-        delete_first = record[:action] == :delete ? 0 : 1
-        [record[:name], record[:type], delete_first]
-      end
-    end
-    # Determine whether two resource record sets are the same in all respects
-    # (keys missing in one should be missing in the other).
-    def compare_records(a, b)
-      as, bs = [a, b].map do |record|
-        [:name, :type, :action, :ttl].map{|k| record[k] } <<
-          Zonify::Sync.normRRs(record[:resource_records])
-      end
-      as == bs
-    end
-    def qualify(captured, root)
-      collated  = Zonify::Sync.collate(captured)
-      collated.inject({}) do |acc, pair|
-        name, info = pair
-        acc[name.sub(/[.]?$/, root)] = info.inject({}) do |acc_, pair_|
-          type, data = pair_
-          case type
-          when 'TXT'
-            rrs = data[:resource_records].map do |rr|
-              /^"zonify \/\/ /.match(rr) ? rr.sub(/[.]?"$/, root+'"') : rr
-            end
-            acc_[type] = data.merge(:resource_records=>rrs)
-          else
-            acc_[type] = data
-          end
-          acc_
-        end
-        acc
-      end
-    end
-    # Sometimes, resource_records are a single string; sometimes, an array.
-    # The array should be sorted for comparison's sake.
-    def normRRs(val)
-      case val
-      when Array then val.sort
-      else            val
-      end
-    end
-  end
 end
 
 extend self
+
+# Given EC2 host and ELB data, construct unqualified DNS entries to make a
+# zone, of sorts.
+def zone(hosts, elbs)
+  host_records = hosts.map do |id,info|
+    name = "#{id}.inst"
+    [ { :type=>'CNAME', :ttl=>86400,
+        :name=>name,    :data=>info[:dns] },
+      { :type=>'TXT',   :ttl=>100,
+        :name=>"inst",  :data=>"\"zonify // #{name}\"" } ]
+  end.flatten
+  elb_records = elbs.map do |elb|
+    running = elb[:instances].select{|i| hosts[i] }
+    name = "#{elb[:prefix]}.elb"
+    running.map do |host|
+      { :type=>'TXT', :ttl=>100,
+        :name=>name,  :data=>"\"zonify // #{host}.inst\"" }
+    end
+  end.flatten
+  sg_records = hosts.inject({}) do |acc, kv|
+    id, info = kv
+    info[:sg].each do |sg|
+      acc[sg] ||= []
+      acc[sg]  << id
+    end
+    acc
+  end.map do |sg, ids|
+    sg_ldh = Zonify.sg_name_to_ldh(sg)
+    name = "#{sg_ldh}.sg"
+    ids.map do |id|
+      { :type=>'TXT', :ttl=>100,
+        :name=>name,  :data=>"\"zonify // #{id}.inst\"" }
+    end
+  end.flatten
+  [host_records, elb_records, sg_records].flatten
+end
+
+# Group DNS entries by into a tree, with name at the top level, type at the
+# next level and then resource records and TTL at the leaves.
+def tree(records)
+  records.inject({}) do |acc, record|
+    name, type, ttl, data = [ record[:name], record[:type],
+                              record[:ttl],  record[:data]  ]
+    acc[name]                          ||= {}
+    acc[name][type]                    ||= {:ttl=>ttl}
+    acc[name][type][:resource_records] ||= []
+    case type  # Enforce singularity of CNAMEs.
+    when 'CNAME' then acc[name][type][:resource_records] = [data]
+    else              acc[name][type][:resource_records] << data
+    end
+    acc
+  end
+end
+
+# Collate RightAWS style records in to the tree format used by the tree method.
+def tree_from_right_aws(records)
+  records.inject({}) do |acc, record|
+    name, type, ttl, data = [ record[:name], record[:type],
+                              record[:ttl],  record[:resource_records] ]
+    acc[name]                          ||= {}
+    acc[name][type]                      = { :ttl => ttl }
+    acc[name][type][:resource_records]   = data
+    acc
+  end
+end
+
+def qualify(tree, root)
+  tree.inject({}) do |acc, pair|
+    name, info = pair
+    acc[name.sub(/[.]?$/, root)] = info.inject({}) do |acc_, pair_|
+      type, data = pair_
+      case type
+      when 'TXT'
+        rrs = data[:resource_records].map do |rr|
+          /^"zonify \/\/ /.match(rr) ? rr.sub(/[.]?"$/, root+'"') : rr
+        end
+        acc_[type] = data.merge(:resource_records=>rrs)
+      else
+        acc_[type] = data
+      end
+      acc_
+    end
+    acc
+  end
+end
+
+# Old records that have the same element as new records should be left as is.
+# If they differ in any way, they should be marked for deletion and the new
+# record marked for creation. Old records not in the new records should also
+# be marked for deletion.
+def diff(new_records, old_records)
+  create_set = new_records.map do |name, v|
+    old = old_records[name]
+    v.map do |type, data|
+      old_data = ((old and old[type]) or {})
+      unless Zonify.compare_records(old_data, data)
+        data.merge(:name=>name, :type=>type, :action=>:create)
+      end
+    end.compact
+  end
+  delete_set = old_records.map do |name, v|
+    new = new_records[name]
+    v.map do |type, data|
+      new_data = ((new and new[type]) or {})
+      unless Zonify.compare_records(data, new_data)
+        data.merge(:name=>name, :type=>type, :action=>:delete)
+      end
+    end.compact
+  end
+  (delete_set.flatten + create_set.flatten).sort_by do |record|
+    # Sort actions so that creation of a record comes immediately after a
+    # deletion.
+    delete_first = record[:action] == :delete ? 0 : 1
+    [record[:name], record[:type], delete_first]
+  end
+end
+
+# Determine whether two resource record sets are the same in all respects
+# (keys missing in one should be missing in the other).
+def compare_records(a, b)
+  as, bs = [a, b].map do |record|
+    [:name, :type, :action, :ttl].map{|k| record[k] } <<
+      Zonify.normRRs(record[:resource_records])
+  end
+  as == bs
+end
+
+# Sometimes, resource_records are a single string; sometimes, an array. The
+# array should be sorted for comparison's sake. Strings should be put in an
+# array.
+def normRRs(val)
+  case val
+  when Array then val.sort
+  else           [val]
+  end
+end
 
 ELB_DNS_RE = /^([a-z0-9-]+)-[^-.]+[.].+$/
 def cut_down_elb_name(s)
