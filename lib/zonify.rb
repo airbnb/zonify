@@ -70,8 +70,8 @@ class AWS
       r53.change_resource_record_sets(zone[:aws_id], changes, comment)
     end
   end
-  def instances
-    ec2.describe_instances.inject({}) do |acc, i|
+  def instances(*instances)
+    ec2.describe_instances(*instances).inject({}) do |acc, i|
       dns = i[:dns_name]
       unless dns.nil? or dns.empty?
         groups = case
