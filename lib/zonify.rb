@@ -120,7 +120,7 @@ def zone(hosts, elbs)
     end
     acc
   end.map do |sg, ids|
-    sg_ldh = Zonify.sg_name_to_ldh(sg)
+    sg_ldh = Zonify.string_to_ldh(sg)
     name = "#{sg_ldh}.sg"
     ids.map do |id|
       { :type=>'TXT', :ttl=>100,
@@ -236,7 +236,7 @@ def cut_down_elb_name(s)
 end
 
 LDH_RE = /^([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/
-def sg_name_to_ldh(s)
+def string_to_ldh(s)
   LDH_RE.match(s) ? s : s.downcase.gsub(/[^a-z0-9-]/, '-').
                                    sub(/(^-|-$)/, '0')
 end
