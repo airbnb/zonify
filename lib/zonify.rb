@@ -50,13 +50,14 @@ class AWS
   # relevant to the given suffix. When there is any ambiguity, the zone with
   # the longest name is chosen.
   def route53_zone(suffix)
+    suffix_ = Zonify.dot_(suffix)
     relevant_zone = r53.list_hosted_zones.select do |zone|
-      suffix.end_with?(zone[:name])
+      suffix_.end_with?(zone[:name])
     end.sort_by{|zone| zone[:name].length }.last
     if relevant_zone
       zone_id = relevant_zone[:aws_id]
       relevant_records = r53.list_resource_record_sets(zone_id).select do |rr|
-        rr[:name].end_with?(suffix)
+        rr[:name].end_with?(suffix_)
       end
       [relevant_zone, Zonify.tree_from_right_aws(relevant_records)]
     end
@@ -87,7 +88,7 @@ class AWS
     end
   end
   def load_balancers
-    @elb.describe_load_balancers.map do |elb|
+    elb.describe_load_balancers.map do |elb|
       { :instances => elb[:instances],
         :prefix    => Zonify.cut_down_elb_name(elb[:dns_name]) }
     end
@@ -162,14 +163,15 @@ def tree_from_right_aws(records)
 end
 
 def qualify(tree, root)
+  _root_ = Zonify._dot(Zonify.dot_(root))
   tree.inject({}) do |acc, pair|
     name, info = pair
-    acc[name.sub(/[.]?$/, root)] = info.inject({}) do |acc_, pair_|
+    acc[name.sub(/[.]?$/, _root_)] = info.inject({}) do |acc_, pair_|
       type, data = pair_
       case type
       when 'TXT'
         rrs = data[:resource_records].map do |rr|
-          /^"zonify \/\/ /.match(rr) ? rr.sub(/[.]?"$/, root+'"') : rr
+          /^"zonify \/\/ /.match(rr) ? rr.sub(/[.]?"$/, _root_+'"') : rr
         end
         acc_[type] = data.merge(:resource_records=>rrs)
       else
