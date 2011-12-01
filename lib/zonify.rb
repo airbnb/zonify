@@ -99,7 +99,7 @@ extend self
 # zone, of sorts.
 def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
-    name = "#{id}.inst"
+    name = "#{id}"
     [ { :type=>'CNAME', :ttl=>86400,
         :name=>name,    :data=>info[:dns] },
       { :type=>'TXT',   :ttl=>100,
@@ -110,7 +110,7 @@ def zone(hosts, elbs)
     name = "#{elb[:prefix]}.elb"
     running.map do |host|
       { :type=>'TXT', :ttl=>100,
-        :name=>name,  :data=>"\"zonify // #{host}.inst\"" }
+        :name=>name,  :data=>"\"zonify // #{host}\"" }
     end
   end.flatten
   sg_records = hosts.inject({}) do |acc, kv|
@@ -125,7 +125,7 @@ def zone(hosts, elbs)
     name = "#{sg_ldh}.sg"
     ids.map do |id|
       { :type=>'TXT', :ttl=>100,
-        :name=>name,  :data=>"\"zonify // #{id}.inst\"" }
+        :name=>name,  :data=>"\"zonify // #{id}\"" }
     end
   end.flatten
   [host_records, elb_records, sg_records].flatten
