@@ -255,5 +255,15 @@ def dot_(s)
   /[.]$/.match(s) ? s : "#{s}."
 end
 
+module YAML
+extend self
+  def format(records, suffix='')
+    _suffix_ = Zonify._dot(Zonify.dot_(suffix))
+   lines = ::YAML.dump('records'=>records).lines.to_a
+   lines.shift if /^---/.match(lines[0])
+   lines.unshift("suffix: #{_suffix_}")
+  end
+end
+
 end
 
