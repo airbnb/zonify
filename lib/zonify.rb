@@ -79,7 +79,9 @@ class AWS
                  when i[:groups]     then i[:groups].map{|g| g[:group_name] }
                  else                     []
                  end
-        acc[i[:aws_instance_id]] = {:sg => groups, :dns => Zonify.dot_(dns)}
+        acc[i[:aws_instance_id]] = { :sg => groups,
+                                     :tags => i[:tags],
+                                     :dns => Zonify.dot_(dns) }
       end
       acc
     end
