@@ -18,7 +18,8 @@ class AWS
     def create(*args)
       a = [RightAws::Ec2, RightAws::ElbInterface, RightAws::Route53Interface]
       ec2, elb, r53 = a.map do |cls|
-        Proc.new{|| cls.new(*args) }
+        cloned = args.map{|item| item.dup unless item.nil? }
+        Proc.new{|| cls.new(*cloned) }
       end
       Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
     end
