@@ -1,10 +1,11 @@
+require 'yaml'
 
 require 'right_aws'
 
-# Set up for AWS interfaces and access to EC2 instance metadata.
+
 module Zonify
 
-
+# Set up for AWS interfaces and access to EC2 instance metadata.
 class AWS
   class << self
     # Retrieve the EC2 instance ID of this instance.
