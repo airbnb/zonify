@@ -15,10 +15,10 @@ class AWS
     # Initialize all AWS interfaces with the same access keys and logger
     # (probably what you want to do). These are set up lazily; unused
     # interfaces will not be initialized.
-    def create(access, secret, logger)
+    def create(*args)
       a = [RightAws::Ec2, RightAws::ElbInterface, RightAws::Route53Interface]
       ec2, elb, r53 = a.map do |cls|
-        Proc.new{|| cls.new(access, secret, :logger=>logger) }
+        Proc.new{|| cls.new(*args) }
       end
       Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
     end
