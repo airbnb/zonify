@@ -65,7 +65,7 @@ class AWS
   # Apply a changeset to the records in Route53. The records must all be under
   # the same zone and suffix.
   def apply(changes, comment='Synced with Zonify tool.')
-    unless changes.emtpy?
+    unless changes.empty?
       suffix  = changes.first[:name] # Works because of longest submatch rule.
       zone, _ = route53_zone(suffix)
       r53.change_resource_record_sets(zone[:aws_id], changes, comment)
