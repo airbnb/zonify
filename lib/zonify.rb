@@ -107,14 +107,14 @@ def zone(hosts, elbs)
     [ { :type=>'CNAME', :ttl=>86400,
         :name=>name,    :data=>info[:dns] },
       { :type=>'TXT',   :ttl=>100,
-        :name=>"inst",  :data=>"\"zonify // #{name}\"" } ]
+        :name=>"inst",  :data=>"\"zonify // #{name}.\"" } ]
   end.flatten
   elb_records = elbs.map do |elb|
     running = elb[:instances].select{|i| hosts[i] }
     name = "#{elb[:prefix]}.elb"
     running.map do |host|
       { :type=>'TXT', :ttl=>100,
-        :name=>name,  :data=>"\"zonify // #{host}.inst\"" }
+        :name=>name,  :data=>"\"zonify // #{host}.inst.\"" }
     end
   end.flatten
   sg_records = hosts.inject({}) do |acc, kv|
@@ -129,7 +129,7 @@ def zone(hosts, elbs)
     name = "#{sg_ldh}.sg"
     ids.map do |id|
       { :type=>'TXT', :ttl=>100,
-        :name=>name,  :data=>"\"zonify // #{id}.inst\"" }
+        :name=>name,  :data=>"\"zonify // #{id}.inst.\"" }
     end
   end.flatten
   [host_records, elb_records, sg_records].flatten
