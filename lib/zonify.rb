@@ -258,10 +258,21 @@ end
 module YAML
 extend self
   def format(records, suffix='')
-    _suffix_ = Zonify._dot(Zonify.dot_(suffix))
-   lines = ::YAML.dump('records'=>records).lines.to_a
+   _suffix_ = Zonify._dot(Zonify.dot_(suffix))
+   lines = Zonify::YAML.trim_lines(::YAML.dump('records'=>records))
+   lines.unshift("suffix: #{_suffix_}\n").join
+  end
+  def read(text)
+    yaml = ::YAML.load(text)
+    if yaml['suffix'] and yaml['records']
+      [yaml['suffix'], yaml['records']]
+    end
+  end
+  def trim_lines(yaml)
+   lines = yaml.lines.to_a
    lines.shift if /^---/.match(lines[0])
-   lines.unshift("suffix: #{_suffix_}")
+   lines.pop if /^$/.match(lines[-1])
+   lines
   end
 end
 
