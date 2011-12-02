@@ -241,10 +241,10 @@ def cut_down_elb_name(s)
   $1 if ELB_DNS_RE.match(s)
 end
 
-LDH_RE = /^([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/
+LDH_RE = /^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])$/
 def string_to_ldh(s)
-  LDH_RE.match(s) ? s : s.downcase.gsub(/[^a-z0-9-]/, '-').
-                                   sub(/(^-|-$)/, '0')
+  LDH_RE.match(s) ? s.downcase : s.downcase.gsub(/[^a-z0-9-]/, '-').
+                                            sub(/(^-|-$)/, '0')
 end
 
 def _dot(s)
