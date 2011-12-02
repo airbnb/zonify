@@ -2,6 +2,8 @@ require 'yaml'
 
 require 'right_aws'
 
+require 'zonify/resolve'
+
 
 module Zonify
 

@@ -139,6 +139,10 @@ if __FILE__ == $0
     changes = YAML.load(File.read(ARGV[1]))
     STDERR.puts(display(changes)) unless quiet
     AWS.apply(changes)
+  when 'resolve'
+    ARGV[1..-1].each do |name|
+      Zonify::Resolve.resolve(name).each{|ln| STDOUT.puts(ln) }
+    end
   else
     abort 'Argument error.'
   end
