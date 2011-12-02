@@ -141,7 +141,10 @@ if __FILE__ == $0
     AWS.apply(changes)
   when 'resolve'
     ARGV[1..-1].each do |name|
-      Zonify::Resolve.resolve(name).each{|ln| STDOUT.puts(ln) }
+      Zonify::Resolve.resolve(name).each do |ln|
+        # Remove final dots because it prevents SSH config rules from firing.
+        STDOUT.puts(ln.sub(/[.]$/,''))
+      end
     end
   else
     abort 'Argument error.'
