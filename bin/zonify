@@ -9,7 +9,7 @@ USAGE =<<USAGE
 USAGE
 
 # Restore terminal state on SIGINT. Needed due to use of Readline.
-stty_save = `stty -g`.chomp
+stty_save = `stty -g 2>/dev/null`.chomp
 trap('INT') do
   system('stty', stty_save)
   exit
