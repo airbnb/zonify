@@ -1,0 +1,146 @@
+#!/usr/bin/env ruby
+libdir = File.expand_path("#{File.dirname(__FILE__)}/../lib")
+$LOAD_PATH.unshift(libdir) if File.directory?(libdir)
+USAGE =<<USAGE
+ USAGE: zonfiy <args>
+
+  Not documented.
+
+USAGE
+
+# Restore terminal state on SIGINT. Needed due to use of Readline.
+stty_save = `stty -g`.chomp
+trap('INT') do
+  system('stty', stty_save)
+  exit
+end
+
+require 'readline'
+require 'yaml'
+
+require 'rubygems'
+require 'right_aws'
+
+require 'zonify'
+
+
+class CLIAWS
+  def respond_to?(sym)
+    aws.respond_to?(sym)
+  end
+  def method_missing(sym, *args, &block)
+    begin
+      aws.send(sym, *args, &block)
+    rescue RightAws::AwsError => e
+      abort "AWS error: #{e}"
+    end
+  end
+  def aws
+    @aws ||= Zonify::AWS.create(nil, nil, :logger=>Logger.new('/dev/null'))
+  end
+end
+AWS = CLIAWS.new
+
+def check_name(suffix)
+  abort 'No root domain given.' unless suffix
+  unless suffix.split('.').all?{|s| s.empty? or Zonify::LDH_RE.match(s) }
+    abort "Not a conventional, LDH domain name: #{suffix}"
+  end
+end
+
+def display(changes)
+  if changes.empty?
+    'No changes; nothing to do.'
+  else
+    summary = changes.inject({}) do |acc, change|
+      acc[change[:name]] ||= []
+      acc[change[:name]]  << change[:action]
+      acc
+    end.map do |k, v|
+      case v
+      when [:delete, :create] then [k, 'replace']
+      when [:delete]          then [k, 'delete']
+      when [:create]          then [k, 'create']
+      end
+    end.sort
+    len = summary.map{|name, op| [name.length, 64].min }.max
+    formatted = summary.map{|name, op| name.ljust(len) + "  --->  " + op }
+    formatted.unshift("There are #{summary.length} changes.").join("\n")
+  end
+end
+
+if __FILE__ == $0
+  if ARGV.any?{|arg| %w| help -h --help -? |.member?(arg) }
+    puts USAGE
+    exit
+  end
+  confirm = [ARGV.delete("-c"), ARGV.delete("--confirm")].any?
+  quiet = [ARGV.delete("-q"), ARGV.delete("--quiet")].any?
+  case ARGV[0]
+  when 'ec2'
+    data = AWS.ec2_zone
+    puts Zonify::YAML.format(data)
+  when 'r53'
+    suffix = ARGV[1]
+    check_name(suffix)
+    zone, data = AWS.route53_zone(suffix)
+    if zone and data
+      STDOUT.write Zonify::YAML.format(data, suffix)
+    else
+      STDERR.puts 'No zone found; outputting nonce zone.'
+      STDOUT.write Zonify::YAML.format({}, '.')
+    end
+  when 'diff'
+    suffix, old_records = Zonify::YAML.read(File.read(ARGV[1]))
+    _, new_records = Zonify::YAML.read(File.read(ARGV[2]))
+    changes = Zonify.diff(Zonify.qualify(new_records, suffix), old_records)
+    STDERR.puts(display(changes)) unless quiet
+    STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
+  when 'sync'
+    suffix = ARGV[1]
+    check_name(suffix)
+    new_records = AWS.ec2_zone
+    _, old_records = AWS.route53_zone(suffix)
+    changes = Zonify.diff(Zonify.qualify(new_records, suffix), old_records)
+    STDERR.puts(display(changes)) if confirm or not quiet
+    perform = true
+    if confirm and not changes.empty?
+      msg = 'Perform changes?'
+      while line = Readline.readline("#{msg} [Y/n]  ")
+        case line
+        when /^(n|no)$/i
+          perform = false
+          STDERR.puts 'Abandoning changes...'
+          break
+        when /^(y|yes|)$/i
+          STDERR.puts 'Accepting changes...'
+          break
+        when nil
+          perform = false
+          break
+        else
+          msg = "Perform changes? Please answer with 'y' or 'n'."
+        end
+      end
+    end
+    AWS.apply(changes) if perform
+  when 'ec2/r53'
+    suffix = ARGV[1]
+    check_name(suffix)
+    new_records = AWS.ec2_zone
+    _, old_records = AWS.route53_zone(suffix)
+    changes = Zonify.diff(Zonify.qualify(new_records, suffix), old_records)
+    STDERR.puts(display(changes)) unless quiet
+    STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
+  when 'summarize'
+    changes = YAML.load(File.read(ARGV[1]))
+    STDERR.puts(display(changes))
+  when 'apply'
+    changes = YAML.load(File.read(ARGV[1]))
+    STDERR.puts(display(changes)) unless quiet
+    AWS.apply(changes)
+  else
+    abort 'Argument error.'
+  end
+end
+
