@@ -142,7 +142,7 @@ if __FILE__ == $0
   when 'resolve'
     ARGV[1..-1].each do |name|
       Zonify::Resolve.resolve(name).each do |ln|
-        # Remove final dots because it prevents SSH config rules from firing.
+        # Remove final dots because they prevent SSH config rules from firing.
         STDOUT.puts(ln.sub(/[.]$/,''))
       end
     end
