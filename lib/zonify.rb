@@ -85,7 +85,7 @@ class AWS
                  else                     []
                  end
         acc[i[:aws_instance_id]] = { :sg => groups,
-                                     :tags => i[:tags],
+                                     :tags => (i[:tags] or []),
                                      :dns => Zonify.dot_(dns) }
       end
       acc
@@ -106,6 +106,14 @@ extend self
 def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
     name = "#{id}.inst"
+    info[:tags].map do |tag|
+      k, v = tag
+      unless k.empty? or k.nil? or v.empty? or v.nil?
+        tag_dn = "#{Zonify.string_to_ldh(v)}.#{Zonify.string_to_ldh(k)}.tag"
+        { :type=>'TXT',   :ttl=>100,
+          :name=>tag_dn,  :data=>"\"zonify // #{name}.\"" }
+      end
+    end.compact +
     [ { :type=>'CNAME', :ttl=>86400,
         :name=>name,    :data=>info[:dns] },
       { :type=>'TXT',   :ttl=>100,
