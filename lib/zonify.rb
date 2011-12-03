@@ -288,24 +288,24 @@ end
 
 module Mappings
 extend self
-# Apply mappings to rewrite name components above the suffix, rooting matches
-# immediately to the left of the suffix.
-def apply(name, suffix, mappings)
-  name_ = Zonify.dot_(name)
-  _suffix_ = Zonify.dot_(Zonify._dot(suffix))
-  before = Zonify::Mappings.unsuffix(name_, _suffix_)
-  return nil unless before
-  before_ = Zonify.dot_(before)
-  mappings.map do |k, v|
-    _k_ = Zonify.dot_(Zonify._dot(k))
-    leading = Zonify::Mappings.unsuffix(before_, _k_)
-    v.map{|s| Zonify.dot_(leading + Zonify._dot(s)) } if leading
-  end.compact.flatten.map{|s| s[0...-1] + _suffix_ }
-end
-def unsuffix(s, suffix)
-  before, _, after = s.rpartition(suffix)
-  before if after.empty?
-end
+  # Apply mappings to rewrite name components above the suffix, rooting matches
+  # immediately to the left of the suffix.
+  def apply(name, suffix, mappings)
+    name_ = Zonify.dot_(name)
+    _suffix_ = Zonify.dot_(Zonify._dot(suffix))
+    before = Zonify::Mappings.unsuffix(name_, _suffix_)
+    return nil unless before
+    before_ = Zonify.dot_(before)
+    mappings.map do |k, v|
+      _k_ = Zonify.dot_(Zonify._dot(k))
+      leading = Zonify::Mappings.unsuffix(before_, _k_)
+      v.map{|s| Zonify.dot_(leading + Zonify._dot(s)) } if leading
+    end.compact.flatten.map{|s| s[0...-1] + _suffix_ }
+  end
+  def unsuffix(s, suffix)
+    before, _, after = s.rpartition(suffix)
+    before if after.empty?
+  end
 end
 
 end
