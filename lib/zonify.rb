@@ -195,7 +195,7 @@ def qualify(tree, root)
   end
 end
 
-# Old records that have the same element as new records should be left as is.
+# Old records that have the same elements as new records should be left as is.
 # If they differ in any way, they should be marked for deletion and the new
 # record marked for creation. Old records not in the new records should also
 # be marked for deletion.
