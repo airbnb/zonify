@@ -42,7 +42,7 @@ end
 AWS = CLIAWS.new
 
 def check_name(suffix)
-  abort 'No root domain given.' unless suffix
+  abort 'No domain given.' unless suffix
   unless suffix.split('.').all?{|s| s.empty? or Zonify::LDH_RE.match(s) }
     abort "Not a conventional, LDH domain name: #{suffix}"
   end
@@ -139,6 +139,14 @@ if __FILE__ == $0
     changes = YAML.load(File.read(ARGV[1]))
     STDERR.puts(display(changes)) unless quiet
     AWS.apply(changes)
+  when 'rewrite'
+    mappings = (ARGV[1..-1] or []).map{|s| Zonify::Mappings.parse(s) }
+    abort 'No mappings given.' if mappings.empty?
+    abort 'Bad mapping parse.' if mappings.any?{|r| r.nil? }
+    mappings.each{|k, v| ([k] + v).each{|s| check_name(s) } }
+    suffix, records = Zonify::YAML.read(STDIN)
+    mapped = Zonify::Mappings.rewrite(records, mappings)
+    STDOUT.write(Zonify::YAML.format(mapped, suffix))
   when 'resolve'
     ARGV[1..-1].each do |name|
       Zonify::Resolve.resolve(name).each do |ln|

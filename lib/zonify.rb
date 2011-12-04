@@ -101,31 +101,40 @@ end
 
 extend self
 
+
+# Records are all created with functions in this module, which ensures the
+# necessary SRV prefixes, uniform TTLs and final dots in names.
+module RR
+extend self
+  def srv(service, name)
+    { :type=>'SRV', :data=>"0 0 0 #{Zonify.dot_(name)}",
+      :ttl=>100,    :name=>"#{Zonify::Resolve::SRV_PREFIX}.#{service}" }
+  end
+  def cname(name, dns)
+    { :type=>'CNAME', :data=>Zonify.dot_(dns),
+      :ttl=>86400,    :name=>Zonify.dot_(name) }
+  end
+end
+
 # Given EC2 host and ELB data, construct unqualified DNS entries to make a
 # zone, of sorts.
 def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
-    name = "#{id}.inst"
+    name = "#{id}.inst."
+    [ Zonify::RR.cname(name, info[:dns]),
+      Zonify::RR.srv('inst.', name) ] +
     info[:tags].map do |tag|
       k, v = tag
       unless k.empty? or k.nil? or v.empty? or v.nil?
-        tag_dn = "#{Zonify.string_to_ldh(v)}.#{Zonify.string_to_ldh(k)}.tag"
-        { :type=>'TXT',   :ttl=>100,
-          :name=>tag_dn,  :data=>"\"zonify // #{name}.\"" }
+        tag_dn = "#{Zonify.string_to_ldh(v)}.#{Zonify.string_to_ldh(k)}.tag."
+        Zonify::RR.srv(tag_dn, name)
       end
-    end.compact +
-    [ { :type=>'CNAME', :ttl=>86400,
-        :name=>name,    :data=>info[:dns] },
-      { :type=>'TXT',   :ttl=>100,
-        :name=>"inst",  :data=>"\"zonify // #{name}.\"" } ]
+    end.compact
   end.flatten
   elb_records = elbs.map do |elb|
     running = elb[:instances].select{|i| hosts[i] }
-    name = "#{elb[:prefix]}.elb"
-    running.map do |host|
-      { :type=>'TXT', :ttl=>100,
-        :name=>name,  :data=>"\"zonify // #{host}.inst.\"" }
-    end
+    name = "#{elb[:prefix]}.elb."
+    running.map{|host| Zonify::RR.srv(name, "#{host}.inst.") }
   end.flatten
   sg_records = hosts.inject({}) do |acc, kv|
     id, info = kv
@@ -136,11 +145,8 @@ def zone(hosts, elbs)
     acc
   end.map do |sg, ids|
     sg_ldh = Zonify.string_to_ldh(sg)
-    name = "#{sg_ldh}.sg"
-    ids.map do |id|
-      { :type=>'TXT', :ttl=>100,
-        :name=>name,  :data=>"\"zonify // #{id}.inst.\"" }
-    end
+    name = "#{sg_ldh}.sg."
+    ids.map{|id| Zonify::RR.srv(name, "#{id}.inst.") }
   end.flatten
   [host_records, elb_records, sg_records].flatten
 end
@@ -288,23 +294,55 @@ end
 
 module Mappings
 extend self
-  # Apply mappings to rewrite name components above the suffix, rooting matches
-  # immediately to the left of the suffix.
-  def apply(name, suffix, mappings)
+  def parse(s)
+    k, *v = s.split(':')
+    [k, v] if k and v and not v.empty?
+  end
+  # Apply mappings to the name in order. (A hash can be used for mappings but
+  # then one will not be able to predict the order.) If no mappings apply, the
+  # empty list is returned.
+  def apply(name, mappings)
     name_ = Zonify.dot_(name)
-    _suffix_ = Zonify.dot_(Zonify._dot(suffix))
-    before = Zonify::Mappings.unsuffix(name_, _suffix_)
-    return nil unless before
-    before_ = Zonify.dot_(before)
     mappings.map do |k, v|
       _k_ = Zonify.dot_(Zonify._dot(k))
-      leading = Zonify::Mappings.unsuffix(before_, _k_)
-      v.map{|s| Zonify.dot_(leading + Zonify._dot(s)) } if leading
-    end.compact.flatten.map{|s| s[0...-1] + _suffix_ }
+      before = Zonify::Mappings.unsuffix(name_, _k_)
+      v.map{|s| Zonify.dot_(before + Zonify._dot(s)) } if before
+    end.compact.flatten
+  end
+  # Get the names that result from the mappings, or the original name if none
+  # apply. The first name in the list is taken to be the canonical name, the
+  # one used for groups of servers in SRV records.
+  def names(name, mappings)
+    mapped = Zonify::Mappings.apply(name, mappings)
+    mapped.empty? ? [name] : mapped
   end
   def unsuffix(s, suffix)
     before, _, after = s.rpartition(suffix)
     before if after.empty?
+  end
+  def rewrite(tree, mappings)
+    tree.inject({}) do |acc, pair|
+      name, info = pair
+      names = Zonify::Mappings.names(name, mappings)
+      names.each do |name|
+        acc[name] = info.inject({}) do |acc_, pair_|
+          type, data = pair_
+          case type
+          when 'SRV'
+            if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
+              rrs = data[:resource_records].map do |rr|
+                Zonify::Mappings.names(name, mappings).first
+              end
+              acc_[type] = data.merge(:resource_records=>rrs)
+            end
+          else
+            acc_[type] = data
+          end
+          acc_
+        end
+      end
+      acc
+    end
   end
 end
 

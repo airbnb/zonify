@@ -6,6 +6,7 @@ require 'net/dns/resolver'
 module Zonify ; end
 module Zonify::Resolve
 
+SRV_PREFIX = '_*._*'
 ZNAME = /^zonify \/\/ ([.a-z0-9-]*[.]) *$/
 
 extend self
