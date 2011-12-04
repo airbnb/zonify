@@ -8,10 +8,11 @@ Synopsis
 .. code-block:: text
 
     zonify ... (-h|-[?]|--help)? ...
-    zonify ec2 > zone.ec2.yaml
+    zonify ec2 <rewrite rules>* > zone.ec2.yaml
     zonify r53 <domain> > zone.r53.yaml
     zonify ec2/r53 <domain> > changes.yaml
     zonify diff zone.r53.yaml zone.ec2.yaml > changes.yaml
+    zonify rewrite <rewrite rules>* < zone.ec2.yaml
     zonify summarize < changes.yaml
     zonify apply < changes.yaml
     zonify sync (--confirm)?
