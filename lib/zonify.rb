@@ -180,27 +180,6 @@ def tree_from_right_aws(records)
   end
 end
 
-def qualify(tree, root)
-  _root_ = Zonify._dot(Zonify.dot_(root))
-  tree.inject({}) do |acc, pair|
-    name, info = pair
-    acc[name.sub(/[.]?$/, _root_)] = info.inject({}) do |acc_, pair_|
-      type, data = pair_
-      case type
-      when 'TXT'
-        rrs = data[:resource_records].map do |rr|
-          /^"zonify \/\/ /.match(rr) ? rr.sub(/[.]?"$/, _root_+'"') : rr
-        end
-        acc_[type] = data.merge(:resource_records=>rrs)
-      else
-        acc_[type] = data
-      end
-      acc_
-    end
-    acc
-  end
-end
-
 # Old records that have the same elements as new records should be left as is.
 # If they differ in any way, they should be marked for deletion and the new
 # record marked for creation. Old records not in the new records should also
@@ -275,8 +254,11 @@ module YAML
 extend self
   def format(records, suffix='')
    _suffix_ = Zonify._dot(Zonify.dot_(suffix))
-   lines = Zonify::YAML.trim_lines(::YAML.dump('records'=>records))
-   lines.unshift("suffix: #{_suffix_}\n").join
+   entries = records.keys.sort.map do |k|
+     dumped = ::YAML.dump(k=>records[k])
+     Zonify::YAML.trim_lines(dumped).map{|ln| '  ' + ln }.join
+   end.join
+   "suffix: #{_suffix_}\nrecords:\n" + entries
   end
   def read(text)
     yaml = ::YAML.load(text)
@@ -331,7 +313,9 @@ extend self
           when 'SRV'
             if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
               rrs = data[:resource_records].map do |rr|
-                Zonify::Mappings.names(name, mappings).first
+                if /^(.+) ([^ ]+)$/.match(rr)
+                  "#{$1} #{Zonify::Mappings.names($2, mappings).first}"
+                end
               end
               acc_[type] = data.merge(:resource_records=>rrs)
             end
