@@ -307,21 +307,28 @@ extend self
       name, info = pair
       names = Zonify::Mappings.names(name, mappings)
       names.each do |name|
-        acc[name] = info.inject({}) do |acc_, pair_|
+        acc[name] ||= {}
+        info.inject(acc[name]) do |acc_, pair_|
           type, data = pair_
-          case type
-          when 'SRV'
-            if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
-              rrs = data[:resource_records].map do |rr|
-                if /^(.+) ([^ ]+)$/.match(rr)
-                  "#{$1} #{Zonify::Mappings.names($2, mappings).first}"
+          acc_[type] ||= { :resource_records=>[] }
+          rrs = case type
+                when 'SRV'
+                  if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
+                    data[:resource_records].map do |rr|
+                      if /^(.+) ([^ ]+)$/.match(rr)
+                        "#{$1} #{Zonify::Mappings.names($2, mappings).first}"
+                      else
+                        rr
+                      end
+                    end
+                  else
+                    data[:resource_records]
+                  end
+                else
+                  data[:resource_records]
                 end
-              end
-              acc_[type] = data.merge(:resource_records=>rrs)
-            end
-          else
-            acc_[type] = data
-          end
+          new_rrs = rrs + acc_[type][:resource_records]
+          acc_[type] = data.merge(:resource_records=>new_rrs.sort)
           acc_
         end
       end
