@@ -60,9 +60,12 @@ class AWS
     end.sort_by{|zone| zone[:name].length }.last
     if relevant_zone
       zone_id = relevant_zone[:aws_id]
-      relevant_records = r53.list_resource_record_sets(zone_id).select do |rr|
-        rr[:name].end_with?(suffix_)
-      end
+      relevant_records = r53.list_resource_record_sets(zone_id).map do |rr|
+        if rr[:name].end_with?(suffix_)
+          rr[:name] = Zonify.read_octal(rr[:name])
+          rr
+        end
+      end.compact
       [relevant_zone, Zonify.tree_from_right_aws(relevant_records)]
     end
   end
@@ -229,6 +232,18 @@ def normRRs(val)
   when Array then val.sort
   else           [val]
   end
+end
+
+def read_octal(s)
+  after = s
+  acc = ''
+  loop do
+    before, match, after = after.partition(/\\([0-9][0-9][0-9])/)
+    acc += before
+    break if match.empty?
+    acc << $1.oct
+  end
+  acc
 end
 
 ELB_DNS_RE = /^([a-z0-9-]+)-[^-.]+[.].+$/
