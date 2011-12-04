@@ -88,8 +88,8 @@ class AWS
                  else                     []
                  end
         acc[i[:aws_instance_id]] = { :sg => groups,
-                                     :tags => (i[:tags] or []),
-                                     :dns => Zonify.dot_(dns) }
+                                     :dns => Zonify.dot_(dns),
+                                     :tags => (i[:tags] or []) }
       end
       acc
     end
