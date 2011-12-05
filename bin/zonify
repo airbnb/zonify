@@ -13,13 +13,6 @@ USAGE =<<USAGE
         zonify sync (--confirm)? <rewrite rules>*
 USAGE
 
-# Restore terminal state on SIGINT. Needed due to use of Readline.
-stty_save = `stty -g 2>/dev/null`.chomp
-trap('INT') do
-  system('stty', stty_save)
-  exit
-end
-
 require 'readline'
 require 'yaml'
 
@@ -86,6 +79,35 @@ def normed_with_mappings(mapping_args, suffix, records)
   Zonify.normalize(restored)
 end
 
+def confirm_dialogue
+  # Restore terminal state on SIGINT. Needed due to use of Readline.
+  stty_save = `stty -g 2>/dev/null`.chomp
+  trap('INT') do
+    system('stty', stty_save)
+    exit
+  end
+  perform = false
+  msg = 'Perform changes?'
+  while line = Readline.readline("#{msg} [Y/n]  ")
+    case line
+    when /^(n|no)$/i
+      perform = false
+      STDERR.puts 'Abandoning changes...'
+      break
+    when /^(y|yes|)$/i
+      perform = true
+      STDERR.puts 'Initiating changes...'
+      break
+    when nil
+      perform = false
+      break
+    else
+      msg = "Perform changes? Please answer with 'y' or 'n'."
+    end
+  end
+  perform
+end
+
 if __FILE__ == $0
   if ARGV.any?{|arg| %w| help -h --help -? |.member?(arg) }
     puts USAGE
@@ -128,26 +150,11 @@ if __FILE__ == $0
     _, old_records = aws.route53_zone(suffix)
     changes = Zonify.diff(mapped, old_records)
     STDERR.puts(display(changes)) if confirm or not quiet
-    perform = true
-    if confirm and not changes.empty?
-      msg = 'Perform changes?'
-      while line = Readline.readline("#{msg} [Y/n]  ")
-        case line
-        when /^(n|no)$/i
-          perform = false
-          STDERR.puts 'Abandoning changes...'
-          break
-        when /^(y|yes|)$/i
-          STDERR.puts 'Accepting changes...'
-          break
-        when nil
-          perform = false
-          break
-        else
-          msg = "Perform changes? Please answer with 'y' or 'n'."
-        end
-      end
-    end
+    perform = if confirm and not changes.empty?
+                confirm_dialogue
+              else
+                true
+              end
     aws.apply(changes) if perform
   when 'ec2/r53'
     suffix = ARGV[1]
@@ -164,8 +171,13 @@ if __FILE__ == $0
     STDERR.puts(display(changes))
   when 'apply'
     changes = ARGV[1] ? YAML.load(File.read(ARGV[1])) : YAML.load(STDIN)
-    STDERR.puts(display(changes)) unless quiet
-    aws.apply(changes)
+    STDERR.puts(display(changes)) if confirm or not quiet
+    perform = if confirm and not changes.empty?
+                confirm_dialogue
+              else
+                true
+              end
+    aws.apply(changes) if perform
   when 'rewrite'
     suffix, records = Zonify::YAML.read(STDIN)
     mappings = (ARGV[1..-1] or [])
