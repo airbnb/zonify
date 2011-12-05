@@ -113,9 +113,9 @@ extend self
     { :type=>'SRV', :data=>"0 0 0 #{Zonify.dot_(name)}",
       :ttl=>100,    :name=>"#{Zonify::Resolve::SRV_PREFIX}.#{service}" }
   end
-  def cname(name, dns)
+  def cname(name, dns, ttl=100)
     { :type=>'CNAME', :data=>Zonify.dot_(dns),
-      :ttl=>86400,    :name=>Zonify.dot_(name) }
+      :ttl=>ttl,      :name=>Zonify.dot_(name) }
   end
 end
 
@@ -124,7 +124,7 @@ end
 def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
     name = "#{id}.inst."
-    [ Zonify::RR.cname(name, info[:dns]),
+    [ Zonify::RR.cname(name, info[:dns], 86400), # Long TTLs for host records.
       Zonify::RR.srv('inst.', name) ] +
     info[:tags].map do |tag|
       k, v = tag
@@ -161,14 +161,73 @@ def tree(records)
     name, type, ttl, data = [ record[:name], record[:type],
                               record[:ttl],  record[:data]  ]
     acc[name]                          ||= {}
-    acc[name][type]                    ||= {:ttl=>ttl}
+    acc[name][type]                    ||= { :ttl=>ttl }
     acc[name][type][:resource_records] ||= []
-    case type  # Enforce singularity of CNAMEs.
-    when 'CNAME' then acc[name][type][:resource_records] = [data]
-    else              acc[name][type][:resource_records] << data
+    acc[name][type][:resource_records]  << data
+    acc
+  end
+end
+
+# In the fully normalized tree of records, there are no multi-entry CNAMEs and
+# every single entry SRV record has a corresponding SRV record. All resource
+# record lists are sorted and deduplicated.
+# To normalize a tree, we introduce CNAMEs for every singleton SRV record and
+# merge them in. Then we transform all multi-entry CNAMEs to SRV records and
+# collect the CNAMEs to be removed. The CNAMEs are removed and the new SRV
+# records merged in.
+def normalize(tree)
+  singles = Zonify.cname_singletons(tree)
+  merged = Zonify.merge(tree, singles)
+  remove, srvs = Zonify.srv_from_cnames(merged)
+  cleared = merged.inject({}) do |acc, pair|
+    name, info = pair
+    info.each do |type, data|
+      unless 'CNAME' == type and remove.member?(name)
+        acc[name] ||= {}
+        acc[name][type] = data
+      end
     end
     acc
   end
+  Zonify.merge(cleared, srvs)
+end
+
+# For SRV records with a single entry, create a singleton CNAME as a
+# convenience.
+def cname_singletons(tree)
+  tree.inject({}) do |acc, pair|
+    name, info = pair
+    name_clipped = name.sub("#{Zonify::Resolve::SRV_PREFIX}.", '')
+    info.each do |type, data|
+      if 'SRV' == type and 1 == data[:resource_records].length
+        rr_clipped = data[:resource_records].map do |rr|
+          Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
+        end
+        new_data = data.merge(:resource_records=>rr_clipped)
+        acc[name_clipped] = { 'CNAME' => new_data }
+      end
+    end
+    acc
+  end
+end
+
+# Find CNAMEs with multiple records and create SRV records to replace them,
+# as well as returning the list of CNAMEs so replaced.
+def srv_from_cnames(tree)
+  remove = []
+  srvs = tree.inject({}) do |acc, pair|
+    name, info = pair
+    name_srv = "#{Zonify::Resolve::SRV_PREFIX}.#{name}"
+    info.each do |type, data|
+      if 'CNAME' == type and 1 < data[:resource_records].length
+        remove.push(name)
+        rr_srv = data[:resource_records].map{|s| '0 0 0 ' + s }
+        acc[name_srv]['SRV'] = { :ttl=>100, :resource_records=>rr_srv }
+      end
+    end
+    acc
+  end
+  [remove, srvs]
 end
 
 # Collate RightAWS style records in to the tree format used by the tree method.
@@ -181,6 +240,28 @@ def tree_from_right_aws(records)
     acc[name][type][:resource_records]   = data
     acc
   end
+end
+
+# Merge all records from the trees, taking TTLs from the leftmost tree and
+# sorting and deduplicating resource records. (When called on a single tree,
+# this function serves to sort and deduplicate resource records.)
+def merge(*trees)
+  acc = {}
+  trees.each do |tree|
+    tree.inject(acc) do |acc, pair|
+      name, info     = pair
+      acc[name]    ||= {}
+      info.inject(acc[name]) do |acc_, pair_|
+        type, data   = pair_
+        acc_[type] ||= data.merge(:resource_records=>[])
+        new_rrs      = data[:resource_records] + acc_[type][:resource_records]
+        acc_[type][:resource_records] = new_rrs.uniq.sort
+        acc_
+      end
+      acc
+    end
+  end
+  acc
 end
 
 # Old records that have the same elements as new records should be left as is.
@@ -343,7 +424,7 @@ extend self
                   data[:resource_records]
                 end
           new_rrs = rrs + acc_[type][:resource_records]
-          acc_[type] = data.merge(:resource_records=>new_rrs.sort)
+          acc_[type] = data.merge(:resource_records=>new_rrs)
           acc_
         end
       end
