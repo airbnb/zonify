@@ -184,13 +184,6 @@ if __FILE__ == $0
     abort 'No mappings given.' if mappings.empty?
     mapped = normed_with_mappings(mappings, suffix, records)
     STDOUT.write(Zonify::YAML.format(mapped, suffix))
-  when 'resolve'
-    ARGV[1..-1].each do |name|
-      Zonify::Resolve.resolve(name).each do |ln|
-        # Remove final dots because they prevent SSH config rules from firing.
-        STDOUT.puts(ln.sub(/[.]$/,''))
-      end
-    end
   else
     abort 'Argument error.'
   end

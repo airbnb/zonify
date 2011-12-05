@@ -2,8 +2,6 @@ require 'yaml'
 
 require 'right_aws'
 
-require 'zonify/resolve'
-
 
 module Zonify
 
@@ -104,6 +102,10 @@ end
 
 extend self
 
+
+module Resolve
+SRV_PREFIX = '_*._*'
+end
 
 # Records are all created with functions in this module, which ensures the
 # necessary SRV prefixes, uniform TTLs and final dots in names.
