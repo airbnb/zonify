@@ -30,7 +30,7 @@ require 'zonify'
 
 
 class CLIAWS
-  def initialize(args=[nil, nil, Logger.new('/dev/null')])
+  def initialize(args=[nil, nil, {:logger=>Logger.new('/dev/null')}])
     @args = args
   end
   def respond_to?(sym)
@@ -163,7 +163,7 @@ if __FILE__ == $0
     changes = YAML.load(File.read(ARGV[1]))
     STDERR.puts(display(changes))
   when 'apply'
-    changes = YAML.load(File.read(ARGV[1]))
+    changes = ARGV[1] ? YAML.load(File.read(ARGV[1])) : YAML.load(STDIN)
     STDERR.puts(display(changes)) unless quiet
     aws.apply(changes)
   when 'rewrite'
