@@ -160,7 +160,7 @@ if __FILE__ == $0
     STDERR.puts(display(changes)) unless quiet
     STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
   when 'summarize'
-    changes = YAML.load(File.read(ARGV[1]))
+    changes = ARGV[1] ? YAML.load(File.read(ARGV[1])) : YAML.load(STDIN)
     STDERR.puts(display(changes))
   when 'apply'
     changes = ARGV[1] ? YAML.load(File.read(ARGV[1])) : YAML.load(STDIN)
