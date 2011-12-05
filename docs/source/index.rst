@@ -56,41 +56,13 @@ zones, one is unlikely to own a zone that is wholly contained in it.
 zone.yaml output format
 -----------------------
 
-The ``zone.*.yaml`` files contain two entries, ``suffix`` and ``records``, as
-in this elided example:
-
-  suffix: .internal.example.com.
-  records:
-    i-0ABCD123.inst.internal.example.com.:
-      CNAME:
-        :ttl: 86400
-        :resource_records:
-        - ec2-86-75-3-09.compute-1.amazonaws.com.
-    i-12345678.inst.internal.example.com.:
-      CNAME:
-        :ttl: 86400
-        :resource_records:
-        - ec2-9-9-9-9.compute-1.amazonaws.com.
-    ...
-    secret.sg.internal.example.com.:
-      TXT:
-        :ttl: 100
-        :resource_records:
-        - "\"zonify // i-0ABCD123.inst.internal.example.com.\""
-        - "\"zonify // i-27248b46.inst.internal.example.com.\""
-    ...
-    the-app.elb.internal.example.com.:
-      TXT:
-        :ttl: 100
-        :resource_records:
-        - "\"zonify // i-0ABCD123.inst.internal.example.com.\""
-        - "\"zonify // i-27248b46.inst.internal.example.com.\""
-    ...
+The ``zone.*.yaml`` files contain two entries, ``suffix`` and ``records``...
 
 Examples
 --------
 
 .. code-block:: bash
 
-  zonify
+  # Shorten the name tag to be at root level.
+  zone ec2 name.tag:.
 
