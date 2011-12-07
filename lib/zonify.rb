@@ -79,6 +79,9 @@ class AWS
   def instances(*instances)
     ec2.describe_instances(*instances).inject({}) do |acc, i|
       dns = i[:dns_name]
+      # The default hostname for EC2 instances is derived their internal DNS
+      # entry.
+      hostname = i[:private_dns_name].split('.').first
       unless dns.nil? or dns.empty?
         groups = case
                  when i[:aws_groups] then i[:aws_groups]
@@ -87,6 +90,7 @@ class AWS
                  end
         acc[i[:aws_instance_id]] = { :sg => groups,
                                      :dns => Zonify.dot_(dns),
+                                     :priv => hostname,
                                      :tags => (i[:tags] or []) }
       end
       acc
@@ -126,7 +130,9 @@ end
 def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
     name = "#{id}.inst."
+    priv = "#{info[:priv]}.priv."
     [ Zonify::RR.cname(name, info[:dns], 86400), # Long TTLs for host records.
+      Zonify::RR.cname(priv, info[:dns], 86400), # Long TTLs for host records.
       Zonify::RR.srv('inst.', name) ] +
     info[:tags].map do |tag|
       k, v = tag
