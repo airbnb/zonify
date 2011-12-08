@@ -81,17 +81,19 @@ class AWS
       dns = i[:dns_name]
       # The default hostname for EC2 instances is derived their internal DNS
       # entry.
-      hostname = i[:private_dns_name].split('.').first
       unless dns.nil? or dns.empty?
         groups = case
                  when i[:aws_groups] then i[:aws_groups]
                  when i[:groups]     then i[:groups].map{|g| g[:group_name] }
                  else                     []
                  end
-        acc[i[:aws_instance_id]] = { :sg => groups,
-                                     :dns => Zonify.dot_(dns),
-                                     :priv => hostname,
-                                     :tags => (i[:tags] or []) }
+        attrs = { :sg => groups,
+                  :tags => (i[:tags] or []),
+                  :dns => Zonify.dot_(dns).downcase }
+        if i[:private_dns_name]
+          attrs[:priv] = i[:private_dns_name].split('.').first.downcase
+        end
+        acc[i[:aws_instance_id]] = attrs
       end
       acc
     end
