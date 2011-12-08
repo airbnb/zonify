@@ -69,6 +69,17 @@ def display(changes)
   end
 end
 
+def yaml_with_default(source, default)
+  s = source.read.rstrip
+  unless s.empty?
+    yaml = YAML.load(s)
+    abort 'Bad YAML parse.' unless yaml
+    yaml
+  else
+    default
+  end
+end
+
 def normed_with_mappings(mapping_args, suffix, records)
   mappings = mapping_args.map{|s| Zonify::Mappings.parse(s) }
   abort 'Bad mapping parse.' if mappings.any?{|r| r.nil? }
@@ -167,10 +178,13 @@ if __FILE__ == $0
     STDERR.puts(display(changes)) unless quiet
     STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
   when 'summarize'
-    changes = ARGV[1] ? YAML.load(File.read(ARGV[1])) : YAML.load(STDIN)
+    handle = ARGV[1] ? File.open(ARGV[1]) : STDIN
+    changes = yaml_with_default(handle, [])
     STDOUT.puts(display(changes))
   when 'apply'
-    changes = ARGV[1] ? YAML.load(File.read(ARGV[1])) : YAML.load(STDIN)
+    handle = ARGV[1] ? File.open(ARGV[1]) : STDIN
+    changes = yaml_with_default(handle, [])
+    STDERR.puts "" unless changes
     STDERR.puts(display(changes)) if confirm or not quiet
     perform = if confirm and not changes.empty?
                 confirm_dialogue
