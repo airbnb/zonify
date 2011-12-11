@@ -1,17 +1,7 @@
 #!/usr/bin/env ruby
-libdir = File.expand_path("#{File.dirname(__FILE__)}/../lib")
-$LOAD_PATH.unshift(libdir) if File.directory?(libdir)
-USAGE =<<USAGE
- USAGE: zonify ... (-h|-[?]|--help)? ...
-        zonify ec2 <rewrite rules>* > zone.ec2.yaml
-        zonify r53 <domain> > zone.r53.yaml
-        zonify ec2/r53 <domain> <rewrite rules>* > changes.yaml
-        zonify diff zone.r53.yaml zone.ec2.yaml > changes.yaml
-        zonify rewrite <rewrite rules>* < zone.ec2.yaml
-        zonify summarize < changes.yaml
-        zonify apply < changes.yaml
-        zonify sync <rewrite rules>*
-USAGE
+root = File.expand_path("#{File.dirname(__FILE__)}/..")
+$LOAD_PATH.unshift("#{root}/lib") if File.directory?("#{root}/lib")
+USAGE = File.read("#{root}/README")
 
 require 'readline'
 require 'yaml'
@@ -119,7 +109,7 @@ def confirm_dialogue
   perform
 end
 
-if __FILE__ == $0
+def main
   if ARGV.any?{|arg| %w| help -h --help -? |.member?(arg) }
     puts USAGE
     exit
@@ -203,4 +193,6 @@ if __FILE__ == $0
     abort 'Argument error.'
   end
 end
+
+main
 
