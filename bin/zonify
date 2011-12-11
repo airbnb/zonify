@@ -10,7 +10,7 @@ USAGE =<<USAGE
         zonify rewrite <rewrite rules>* < zone.ec2.yaml
         zonify summarize < changes.yaml
         zonify apply < changes.yaml
-        zonify sync (--confirm)? <rewrite rules>*
+        zonify sync <rewrite rules>*
 USAGE
 
 require 'readline'
@@ -124,7 +124,8 @@ if __FILE__ == $0
     puts USAGE
     exit
   end
-  confirm = [ARGV.delete("-c"), ARGV.delete("--confirm")].any?
+  #confirm = [ARGV.delete("-c"), ARGV.delete("--confirm")].any?
+  confirm = false
   quiet = [ARGV.delete("-q"), ARGV.delete("--quiet")].any?
   netlogging = [ARGV.delete("-n"), ARGV.delete("--net")].any?
   aws = netlogging ? CLIAWS.new([nil, nil, {:logger=>Logger.new(STDERR)}]) :
