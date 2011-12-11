@@ -69,7 +69,7 @@ the entire Route 53 zone will be rewritten by Zonify; only entries under the
 given subdomain. Say, for example, one has ``example.com`` in a Route 53 zone
 and one plans to use ``amz.example.com`` for Amazon instance records.  In this
 scenario, Zonify will only specify changes that delete or create records in
-``amz.example.com``; ``www.example.com``, ``s0.assets.example.com`` and
+``amz.example.com``; ``www.example.com``, ``s0.mobile.example.com`` and
 similar records will not be affected.
 
 YAML Output
