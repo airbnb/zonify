@@ -107,7 +107,7 @@ a CNAME is also created.
 Records created include:
 
   ``i-ABCD1234.inst.``
-    Individual isntances.
+    Individual instances.
 
   ``_*._*.<value>.<key>.tag.``
     SRV records for tags.
