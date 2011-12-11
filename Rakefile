@@ -8,7 +8,7 @@ end
 
 task :gemspec do
   load $gemspec_file
-  $gemspec = spec
+  $gemspec = @spec
 end
 task :gemspec => :gemspec_file
 
@@ -35,3 +35,11 @@ task :clean do
   system 'rm -f *.gem'
 end
 
+task :sign do
+  gem = "#{$gemspec.name}-#{$gemspec.version}.gem"
+  system "gpg --sign --detach #{gem}"
+  system "sha512sum #{gem} > #{gem}.sha"
+end
+task :sign => [:gem, :gemspec]
+
+task :dist => [:gem, :sign]

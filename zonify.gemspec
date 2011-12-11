@@ -1,4 +1,4 @@
-spec = Gem::Specification.new do |s|
+@spec = Gem::Specification.new do |s|
   s.name                     =  'zonify'
   s.author                   =  'AirBNB'
   s.email                    =  'contact@airbnb.com'
