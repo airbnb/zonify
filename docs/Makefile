@@ -128,3 +128,9 @@ doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
+
+# Make plainer text by reformatting man page.
+zonify.txt: man
+	man $(BUILDDIR)/man/zonify.1 | col -bx |\
+	sed -n '/SYNOPSIS/,/AUTHOR/ { /AUTHOR/d ; p ;}' > ./zonify.txt
+	cp ./zonify.txt ../README
