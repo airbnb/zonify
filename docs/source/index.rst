@@ -27,6 +27,16 @@ The `zonify` tool and libraries intelligently insert a final and initial ``.``
 as needed to conform to DNS conventions. One may enter the domains at the
 command line as ``example.com`` or ``example.com.``; it will work either way.
 
+For access to AWS APIs, `zonify` uses the credentials stored in two
+environment variables:
+
+.. code-block:: text
+
+    AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY
+
+This convention is shared with many AWS libraries and tools.
+
 The subcommands allow staged generation, transformation and auditing of
 entries as well as straightforward, one-step synchronization.
 
