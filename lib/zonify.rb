@@ -247,7 +247,7 @@ def tree_from_right_aws(records)
                               record[:ttl],  record[:resource_records] ]
     acc[name]                          ||= {}
     acc[name][type]                      = { :ttl => ttl }
-    acc[name][type][:resource_records]   = data
+    acc[name][type][:resource_records]   = (data or [])
     acc
   end
 end
@@ -433,6 +433,7 @@ extend self
                 else
                   data[:resource_records]
                 end
+          rrs ||= []
           new_rrs = rrs + acc_[type][:resource_records]
           acc_[type] = data.merge(:resource_records=>new_rrs)
           acc_

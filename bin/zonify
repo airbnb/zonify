@@ -43,8 +43,8 @@ def display(changes)
     'No changes; nothing to do.'
   else
     summary = changes.inject({}) do |acc, change|
-      acc[change[:name]] ||= []
-      acc[change[:name]]  << change[:action]
+      acc["#{change[:name]} #{change[:type]}"] ||= []
+      acc["#{change[:name]} #{change[:type]}"]  << change[:action]
       acc
     end.map do |k, v|
       case v
@@ -138,8 +138,8 @@ def main
     end
   when 'diff'
     suffix, old_records = Zonify::YAML.read(File.read(ARGV[1]))
-    _, new_records = Zonify::YAML.read(File.read(ARGV[2]))
-    qualified = Zonify::Mappings.rewrite(new_records, [['.',[suffix]]])
+    new_suffix, new_records = Zonify::YAML.read(File.read(ARGV[2]))
+    qualified = Zonify::Mappings.rewrite(new_records, [[new_suffix,[suffix]]])
     changes = Zonify.diff(qualified, old_records)
     STDERR.puts(display(changes)) unless quiet
     STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
