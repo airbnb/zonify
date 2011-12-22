@@ -73,7 +73,9 @@ class AWS
     unless changes.empty?
       suffix  = changes.first[:name] # Works because of longest submatch rule.
       zone, _ = route53_zone(suffix)
-      r53.change_resource_record_sets(zone[:aws_id], changes, comment)
+      Zonify.chunk_changesets(changes).each do |changeset|
+        r53.change_resource_record_sets(zone[:aws_id], changeset, comment)
+      end
     end
   end
   def instances(*instances)
@@ -378,6 +380,19 @@ extend self
    lines.pop if /^$/.match(lines[-1])
    lines
   end
+end
+
+# The Route 53 API does not want to accept more than 100 changes at once.
+def chunk_changesets(changes)
+  chunks = [[]]
+  changes.each do |change|
+    if chunks.last.length < 100
+      chunks.last.push(change)
+    else
+      chunks.push([change])
+    end
+  end
+  chunks
 end
 
 module Mappings
