@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o nounset -o pipefail -o errexit
 
-dig @8.8.8.8 +short +tcp "$1" CNAME '_*._*'."$1" SRV |
-  cut -d' ' -f4 | sort | uniq
+for arg in "$@"
+do
+  dig @8.8.8.8 +short +tcp "$arg" CNAME "_*._*.$arg" SRV
+done | cut -d' ' -f4 | sort | uniq | sed 's/[.]$//'
 
