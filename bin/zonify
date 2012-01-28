@@ -136,6 +136,13 @@ def main
       STDERR.puts 'No zone found; outputting nonce zone.'
       STDOUT.write Zonify::YAML.format({}, '.')
     end
+  when 'eips'
+    result = aws.eip_scan
+    entries = result.keys.sort.map do |k|
+      dumped = ::YAML.dump(k=>result[k])
+      Zonify::YAML.trim_lines(dumped).join.sub(/ *\[\]$/,'')
+    end.join
+    STDOUT.write entries
   when 'diff'
     suffix, old_records = Zonify::YAML.read(File.read(ARGV[1]))
     new_suffix, new_records = Zonify::YAML.read(File.read(ARGV[2]))

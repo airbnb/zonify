@@ -106,6 +106,33 @@ class AWS
         :prefix    => Zonify.cut_down_elb_name(elb[:dns_name]) }
     end
   end
+  def eips
+    ec2.describe_addresses
+  end
+  def eip_scan
+    addresses = eips.map{|eip| eip[:public_ip] }
+    result = {}
+    addresses.each{|a| result[a] = [] }
+    r53.list_hosted_zones.sort_by{|zone| zone[:name].reverse }.each do |zone|
+      r53.list_resource_record_sets(zone[:aws_id]).each do |rr|
+        check = case rr[:type]
+                when 'CNAME'
+                  rr[:resource_records].map do |s|
+                    Zonify.ec2_dns_to_ip(s)
+                  end.compact
+                when 'A','AAAA'
+                  rr[:resource_records]
+                end
+        check ||= []
+        found = addresses.select{|a| check.member? a }.sort
+        unless found.empty?
+          name = Zonify.read_octal(rr[:name])
+          found.each{|a| result[a] << name }
+        end
+      end
+    end
+    result
+  end
 end
 
 extend self
@@ -356,6 +383,12 @@ end
 
 def dot_(s)
   /[.]$/.match(s) ? s : "#{s}."
+end
+
+EC2_DNS_RE = /^ec2-([0-9]+)-([0-9]+)-([0-9]+)-([0-9]+)
+               [.]compute-[0-9]+[.]amazonaws[.]com[.]?$/x
+def ec2_dns_to_ip(dns)
+  "#{$1}.#{$2}.#{$3}.#{$4}" if EC2_DNS_RE.match(dns)
 end
 
 module YAML

@@ -8,6 +8,7 @@ SYNOPSIS
        zonify summarize < changes.yaml
        zonify apply < changes.yaml
        zonify sync <domain> <rewrite rules>*
+       zonify eips
 
 DESCRIPTION
        The  zonify  tool  allows  one to create DNS entries for all instances,
@@ -68,6 +69,10 @@ DESCRIPTION
           sync
 
                  Sync the given domain with EC2.
+
+          eips
+
+                 List all Elastic IPs and DNS entries that map to them.
 
 SYNC POLICY
        Zonify  assumes  the domain given on the command line is entirely under

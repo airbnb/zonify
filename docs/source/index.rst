@@ -16,6 +16,7 @@ Synopsis
     zonify summarize < changes.yaml
     zonify apply < changes.yaml
     zonify sync <domain> <rewrite rules>*
+    zonify eips
 
 Description
 -----------
@@ -68,6 +69,9 @@ entries as well as straightforward, one-step synchronization.
 
   ``sync``
     Sync the given domain with EC2.
+
+  ``eips``
+    List all Elastic IPs and DNS entries that map to them.
 
 Sync Policy
 -----------
