@@ -70,13 +70,18 @@ class AWS
   # Apply a changeset to the records in Route53. The records must all be under
   # the same zone and suffix.
   def apply(changes, comment='Synced with Zonify tool.')
-    unless changes.empty?
-      suffix  = changes.first[:name] # Works because of longest submatch rule.
+    require 'pp'
+    # Dumb way to do this because I can not figure out #reject!
+    keep = changes.select{|c| c[:resource_records].length <= 100 }
+    filtered = changes.select{|c| c[:resource_records].length > 100 }
+    unless keep.empty?
+      suffix  = keep.first[:name] # Works because of longest submatch rule.
       zone, _ = route53_zone(suffix)
-      Zonify.chunk_changesets(changes).each do |changeset|
+      Zonify.chunk_changesets(keep).each do |changeset|
         r53.change_resource_record_sets(zone[:aws_id], changeset, comment)
       end
     end
+    filtered
   end
   def instances(*instances)
     ec2.describe_instances(*instances).inject({}) do |acc, i|

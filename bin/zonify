@@ -31,6 +31,18 @@ class CLIAWS
   end
 end
 
+def rejected(rejected_changes)
+  unless rejected_changes.empty?
+    STDERR.puts 'Rejected some changes, because they were too large.'
+    rejected_changes.each do |change|
+      STDOUT.puts <<YAML
+- :name: #{change[:name]}
+  :type: #{change[:type]}
+YAML
+    end
+  end
+end
+
 def check_name(suffix)
   abort 'No domain given.' unless suffix
   unless suffix.split('.').all?{|s| s.empty? or Zonify::LDH_RE.match(s) }
@@ -164,7 +176,7 @@ def main
               else
                 true
               end
-    aws.apply(changes) if perform
+    rejected(aws.apply(changes)) if perform
   when 'ec2/r53'
     suffix = ARGV[1]
     check_name(suffix)
@@ -189,7 +201,7 @@ def main
               else
                 true
               end
-    aws.apply(changes) if perform
+    rejected(aws.apply(changes)) if perform
   when 'rewrite'
     suffix, records = Zonify::YAML.read(STDIN)
     mappings = (ARGV[1..-1] or [])
