@@ -1,11 +1,19 @@
-git_raw = `git log --pretty=format:%h | head -n1`
-git_rev = $?.success? ? ".%d" % git_raw.to_i(16) : ""
+git_version = begin
+  describe = `git describe --tags`
+  if $?.success?
+    stripped = describe.strip
+    /^([^-]+)-([0-9]+)-[^-]+$/.match(stripped) ? "#{$1}.#{$2}" : stripped
+  else
+    git_raw = `git log --pretty=format:%h | head -n1`
+    $?.success? ? '0.0.0.%d' % git_raw.strip.to_i(16) : '0.0.0'
+  end
+end
 @spec = Gem::Specification.new do |s|
   s.name                     =  'zonify'
   s.author                   =  'AirBNB'
   s.email                    =  'contact@airbnb.com'
   s.homepage                 =  'https://github.com/airbnb/zonify'
-  s.version                  =  '0.0.0' + git_rev
+  s.version                  =  git_version
   s.summary                  =  'Generate DNS information from EC2 metadata.'
   s.description              =  <<DESC
 Zonify provides a command line tool for generating DNS records from EC2
