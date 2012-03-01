@@ -9,13 +9,13 @@ Synopsis
 
     zonify ... (-h|-[?]|--help) ...
     zonify ec2 <rewrite rules>* > zone.ec2.yaml
-    zonify ec2/r53 <domain> <rewrite rules>* > changes.yaml (--types ...)?
+    zonify ec2/r53 <domain> <rewrite rules>* > changes.yaml
     zonify r53 <domain> > zone.r53.yaml
-    zonify diff zone.r53.yaml zone.ec2.yaml > changes.yaml (--types ...)?
+    zonify diff zone.r53.yaml zone.ec2.yaml > changes.yaml
     zonify rewrite <rewrite rules>* < zone.ec2.yaml
     zonify summarize < changes.yaml
     zonify apply < changes.yaml
-    zonify sync <domain> <rewrite rules>* (--types ...)?
+    zonify sync <domain> <rewrite rules>*
     zonify eips
 
 Description
@@ -48,17 +48,20 @@ entries as well as straightforward, one-step synchronization.
     into DNS entries, with the generic suffix '.' (intended to be transformed
     by later commands).
 
-  ``ec2/r53``
+  ``ec2/r53`` `(--types CNAME,SRV)?`
     Creates a changes file, describing how records under the given suffix
-    would be created and deleted to bring it in to sync with EC2.
+    would be created and deleted to bring it in to sync with EC2. By default,
+    only records of type ``CNAME`` and ``SRV`` are examined and changed.
 
   ``r53``
     Capture all Route 53 records under the given suffix.
 
-  ``diff``
+  ``diff`` `(--types CNAME,SRV,A,MX,...)?`
     Describe changes (which can be fed to the ``apply`` subcommand) needed to
     bring a Route 53 domain in the first file into sync with domain described
-    in the second file. The suffix is taken from the first file.
+    in the second file. The suffix is taken from the first file. The default
+    with ``diff`` (unlike other `zonify` subcommands) is to examine all record
+    types.
 
   ``rewrite``
     Apply rewrite rules to the domain file.
@@ -69,8 +72,9 @@ entries as well as straightforward, one-step synchronization.
   ``apply``
     Apply a changes file.
 
-  ``sync``
-    Sync the given domain with EC2.
+  ``sync`` `(--types CNAME,SRV)?`
+    Sync the given domain with EC2. By default, only records of type ``CNAME``
+    and ``SRV`` are examined and changed.
 
   ``eips``
     List all Elastic IPs and DNS entries that map to them.
@@ -80,11 +84,13 @@ Sync Policy
 
 Zonify assumes the domain given on the command line is entirely under the
 control of Zonify; records not reflecting the present state of EC2 are
-scheduled for deletion in the generated changesets. This does not mean that
-the entire Route 53 zone will be rewritten by Zonify; only entries under the
-given subdomain. Say, for example, one has ``example.com`` in a Route 53 zone
-and one plans to use ``amz.example.com`` for Amazon instance records.  In this
-scenario, Zonify will only specify changes that delete or create records in
+scheduled for deletion in the generated changesets. This can be controlled to
+some degree with the `--types` option.
+
+The sync scopes over the domain and not necessarily the entire Route 53 zone.
+Say, for example, one has ``example.com`` in a Route 53 zone and one plans to
+use ``amz.example.com`` for Amazon instance records.  In this scenario, Zonify
+will only specify changes that delete or create records under
 ``amz.example.com``; ``www.example.com``, ``s0.mobile.example.com`` and
 similar records will not be affected.
 
