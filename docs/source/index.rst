@@ -9,13 +9,13 @@ Synopsis
 
     zonify ... (-h|-[?]|--help) ...
     zonify ec2 <rewrite rules>* > zone.ec2.yaml
-    zonify ec2/r53 <domain> <rewrite rules>* > changes.yaml
+    zonify ec2/r53 <domain> <rewrite rules>* > changes.yaml (--types ...)?
     zonify r53 <domain> > zone.r53.yaml
-    zonify diff zone.r53.yaml zone.ec2.yaml > changes.yaml
+    zonify diff zone.r53.yaml zone.ec2.yaml > changes.yaml (--types ...)?
     zonify rewrite <rewrite rules>* < zone.ec2.yaml
     zonify summarize < changes.yaml
     zonify apply < changes.yaml
-    zonify sync <domain> <rewrite rules>*
+    zonify sync <domain> <rewrite rules>* (--types ...)?
     zonify eips
 
 Description
@@ -24,19 +24,21 @@ Description
 The `zonify` tool allows one to create DNS entries for all instances, tags and
 load balancers in EC2 and synchronize a Route 53 zone with these entries.
 
-The `zonify` tool and libraries intelligently insert a final and initial ``.``
-as needed to conform to DNS conventions. One may enter the domains at the
-command line as ``example.com`` or ``example.com.``; it will work either way.
+The `zonify` tool and libraries intelligently insert a final and initial
+``'.'`` as needed to conform to DNS conventions. One may enter the domains at
+the command line as ``example.com`` or ``example.com.``; it will work either
+way.
 
-For access to AWS APIs, `zonify` uses the credentials stored in two
-environment variables:
+For access to AWS APIs, `zonify` uses the the conventional environment
+variables to select regions and specify credentials:
 
 .. code-block:: text
 
     AWS_ACCESS_KEY_ID
     AWS_SECRET_ACCESS_KEY
+    EC2_URL
 
-This convention is shared with many AWS libraries and tools.
+These variables are used by many AWS libraries and tools.
 
 The subcommands allow staged generation, transformation and auditing of
 entries as well as straightforward, one-step synchronization.
