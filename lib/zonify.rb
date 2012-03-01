@@ -312,22 +312,26 @@ end
 # If they differ in any way, they should be marked for deletion and the new
 # record marked for creation. Old records not in the new records should also
 # be marked for deletion.
-def diff(new_records, old_records)
+def diff(new_records, old_records, types=['CNAME','SRV'])
   create_set = new_records.map do |name, v|
     old = old_records[name]
     v.map do |type, data|
-      old_data = ((old and old[type]) or {})
-      unless Zonify.compare_records(old_data, data)
-        data.merge(:name=>name, :type=>type, :action=>:create)
+      if types.member? '*' or types.member? type
+        old_data = ((old and old[type]) or {})
+        unless Zonify.compare_records(old_data, data)
+          data.merge(:name=>name, :type=>type, :action=>:create)
+        end
       end
     end.compact
   end
   delete_set = old_records.map do |name, v|
     new = new_records[name]
     v.map do |type, data|
-      new_data = ((new and new[type]) or {})
-      unless Zonify.compare_records(data, new_data)
-        data.merge(:name=>name, :type=>type, :action=>:delete)
+      if types.member? '*' or types.member? type
+        new_data = ((new and new[type]) or {})
+        unless Zonify.compare_records(data, new_data)
+          data.merge(:name=>name, :type=>type, :action=>:delete)
+        end
       end
     end.compact
   end
@@ -496,6 +500,12 @@ extend self
     end
   end
 end
+
+# Based on reading the Wikipedia page:
+#   http://en.wikipedia.org/wiki/List_of_DNS_record_types
+# and the IANA registry:
+#   http://www.iana.org/assignments/dns-parameters
+RRTYPE_RE = /^([*]|[A-Z0-9-]+)$/
 
 end
 

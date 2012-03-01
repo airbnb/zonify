@@ -132,6 +132,14 @@ def main
   netlogging = [ARGV.delete("-n"), ARGV.delete("--net")].any?
   aws = netlogging ? CLIAWS.new([nil, nil, {:logger=>Logger.new(STDERR)}]) :
                      CLIAWS.new
+  types = nil
+  while i = ARGV.index('--types')
+    ARGV.delete_at(i)
+    types = ARGV[i].split(/ +| *, */)
+    ARGV.delete_at(i)
+    bad = types.map{|s| s if not Zonify::RRTYPE_RE.match(s) }.compact
+    abort "Bad RR types: #{bad.join(' ')}" unless bad.empty?
+  end
   case ARGV[0]
   when 'ec2'
     data = aws.ec2_zone
@@ -159,7 +167,7 @@ def main
     suffix, old_records = Zonify::YAML.read(File.read(ARGV[1]))
     new_suffix, new_records = Zonify::YAML.read(File.read(ARGV[2]))
     qualified = Zonify::Mappings.rewrite(new_records, [[new_suffix,[suffix]]])
-    changes = Zonify.diff(qualified, old_records)
+    changes = Zonify.diff(qualified, old_records, (types or %w| * |))
     STDERR.puts(display(changes)) unless quiet
     STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
   when 'sync'
@@ -169,7 +177,7 @@ def main
     mappings = (ARGV[2..-1] or [])
     mapped = normed_with_mappings(mappings, suffix, new_records)
     _, old_records = aws.route53_zone(suffix)
-    changes = Zonify.diff(mapped, old_records)
+    changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) if confirm or not quiet
     perform = if confirm and not changes.empty?
                 confirm_dialogue
@@ -184,7 +192,7 @@ def main
     mappings = (ARGV[2..-1] or [])
     mapped = normed_with_mappings(mappings, suffix, new_records)
     _, old_records = aws.route53_zone(suffix)
-    changes = Zonify.diff(mapped, old_records)
+    changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) unless quiet
     STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
   when 'summarize'
