@@ -82,14 +82,14 @@ def yaml_with_default(source, default)
   end
 end
 
-def normed_with_mappings(mapping_args, suffix, records)
+def normed_with_mappings(mapping_args, suffix, records, norm=true, replace='.')
   mappings = mapping_args.map{|s| Zonify::Mappings.parse(s) }
   abort 'Bad mapping parse.' if mappings.any?{|r| r.nil? }
   mappings.each{|k, v| ([k] + v).each{|s| check_name(s) } }
   clipped  = Zonify::Mappings.rewrite(records, [[suffix,['.']]])
   mapped   = Zonify::Mappings.rewrite(clipped, mappings)
   restored = Zonify::Mappings.rewrite(mapped, [['.',[suffix]]])
-  Zonify.normalize(restored)
+  norm ? Zonify.normalize(restored) : restored
 end
 
 def confirm_dialogue
@@ -128,8 +128,9 @@ def main
   end
   #confirm = [ARGV.delete("-c"), ARGV.delete("--confirm")].any?
   confirm = false
-  quiet = [ARGV.delete("-q"), ARGV.delete("--quiet")].any?
-  netlogging = [ARGV.delete("-n"), ARGV.delete("--net")].any?
+  quiet      = (ARGV.delete("-q") or ARGV.delete("--quiet"))
+  netlogging = (ARGV.delete("-n") or ARGV.delete("--net"))
+  norm       = (ARGV.delete("--norm") or not ARGV.delete("--no-norm"))
   aws = netlogging ? CLIAWS.new([nil, nil, {:logger=>Logger.new(STDERR)}]) :
                      CLIAWS.new
   types = nil
@@ -144,7 +145,7 @@ def main
   when 'ec2'
     data = aws.ec2_zone
     mappings = (ARGV[1..-1] or [])
-    mapped = normed_with_mappings(mappings, '.', data)
+    mapped = normed_with_mappings(mappings, '.', data, norm)
     STDOUT.write Zonify::YAML.format(mapped, '.')
   when 'r53'
     suffix = ARGV[1]
@@ -175,7 +176,7 @@ def main
     check_name(suffix)
     new_records = aws.ec2_zone
     mappings = (ARGV[2..-1] or [])
-    mapped = normed_with_mappings(mappings, suffix, new_records)
+    mapped = normed_with_mappings(mappings, suffix, new_records, norm)
     _, old_records = aws.route53_zone(suffix)
     changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) if confirm or not quiet
@@ -190,7 +191,7 @@ def main
     check_name(suffix)
     new_records = aws.ec2_zone
     mappings = (ARGV[2..-1] or [])
-    mapped = normed_with_mappings(mappings, suffix, new_records)
+    mapped = normed_with_mappings(mappings, suffix, new_records, norm)
     _, old_records = aws.route53_zone(suffix)
     changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) unless quiet
@@ -214,8 +215,17 @@ def main
     suffix, records = Zonify::YAML.read(STDIN)
     mappings = (ARGV[1..-1] or [])
     abort 'No mappings given.' if mappings.empty?
-    mapped = normed_with_mappings(mappings, suffix, records)
+    mapped = normed_with_mappings(mappings, suffix, records, norm)
     STDOUT.write(Zonify::YAML.format(mapped, suffix))
+  when 'normalize'
+    suffix, records = Zonify::YAML.read(STDIN)
+    desired_suffix = ARGV[1]
+    normed = if desired_suffix
+               normed_with_mappings([], desired_suffix, records, true)
+             else
+               Zonify.normalize(records)
+             end
+    STDOUT.write(Zonify::YAML.format(normed, (desired_suffix or suffix)))
   else
     abort 'Argument error.'
   end
