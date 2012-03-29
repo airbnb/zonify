@@ -38,7 +38,7 @@ end
 task :sign do
   gem = "#{$gemspec.name}-#{$gemspec.version}.gem"
   system "gpg --sign --detach #{gem}"
-  system "sha512sum #{gem} > #{gem}.sha"
+  system "sha1sum #{gem} > #{gem}.sha"
 end
 task :sign => [:gem, :gemspec]
 
