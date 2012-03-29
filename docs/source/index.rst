@@ -16,6 +16,7 @@ Synopsis
     zonify summarize < changes.yaml
     zonify apply < changes.yaml
     zonify sync <domain> <rewrite rules>*
+    zonify normalize <domain>
     zonify eips
 
 Description
@@ -43,12 +44,12 @@ These variables are used by many AWS libraries and tools.
 The subcommands allow staged generation, transformation and auditing of
 entries as well as straightforward, one-step synchronization.
 
-  ``ec2``
+  ``ec2`` `(--srv-singleton|--no-srv-singleton)?`
     Organizes instances, load balancers, security groups and instance metadata
     into DNS entries, with the generic suffix '.' (intended to be transformed
     by later commands).
 
-  ``ec2/r53`` `(--types CNAME,SRV)?`
+  ``ec2/r53`` `(--types CNAME,SRV)?` `(--srv-singleton|--no-srv-singleton)?`
     Creates a changes file, describing how records under the given suffix
     would be created and deleted to bring it in to sync with EC2. By default,
     only records of type ``CNAME`` and ``SRV`` are examined and changed.
@@ -63,7 +64,7 @@ entries as well as straightforward, one-step synchronization.
     with ``diff`` (unlike other `zonify` subcommands) is to examine all record
     types.
 
-  ``rewrite``
+  ``rewrite`` `(--srv-singleton|--no-srv-singleton)?`
     Apply rewrite rules to the domain file.
 
   ``summarize``
@@ -72,12 +73,28 @@ entries as well as straightforward, one-step synchronization.
   ``apply``
     Apply a changes file.
 
-  ``sync`` `(--types CNAME,SRV)?`
+  ``sync`` `(--types CNAME,SRV)?` `(--srv-singleton|--no-srv-singleton)?`
     Sync the given domain with EC2. By default, only records of type ``CNAME``
     and ``SRV`` are examined and changed.
 
+  ``normalize``
+    Create CNAMEs for SRV records that have only one server in them and rebase
+    records on to the given domain.
+
   ``eips``
     List all Elastic IPs and DNS entries that map to them.
+
+The `--srv-singleton|--no-srv-singleton` options control creation of CNAMEs
+for singleton SRV records. They are enabled by default; but it can be useful
+to disable them for pre-processing the YAML and then adding them with
+``normalize``. For example:
+
+.. code-block:: bash
+
+  zonify r53 amz.example.com > r53.yaml
+  zonify ec2 --no-srv-singleton > ec2.yaml
+  my-yaml-rewriter < ec2.yaml | zonify normalize amz.example.com > normed.yaml
+  zonify diff r53.yaml normed.yaml | zonify apply
 
 Sync Policy
 -----------
@@ -102,6 +119,9 @@ of records are also sorted. This ensures consistent output from run to run;
 and allows the diff tool to return meaningful results when outputs are
 compared.
 
+One exception to this rule is the r53 subcommand, which preserves the order of
+data as it was found in Route 53.
+
 Rewrite Rules
 -------------
 
@@ -122,9 +142,8 @@ Generated Records and Querying
 ------------------------------
 
 For records where there are potentially many servers -- security groups, tags,
-load balancers -- Zonify creates SRV records. For singleton records, CNAMEs
-are provided. As a convenience, when a SRV record has only one entry under it,
-a CNAME is also created.
+load balancers -- Zonify creates SRV records. As a convenience, when a SRV
+record has only one entry under it, a CNAME is also created.
 
 Records created include:
 
