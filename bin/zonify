@@ -82,7 +82,7 @@ def yaml_with_default(source, default)
   end
 end
 
-def normed_with_mappings(mapping_args, suffix, records, norm=true, replace='.')
+def normed_with_mappings(mapping_args, suffix, records, norm=true)
   mappings = mapping_args.map{|s| Zonify::Mappings.parse(s) }
   abort 'Bad mapping parse.' if mappings.any?{|r| r.nil? }
   mappings.each{|k, v| ([k] + v).each{|s| check_name(s) } }
@@ -130,7 +130,8 @@ def main
   confirm = false
   quiet      = (ARGV.delete("-q") or ARGV.delete("--quiet"))
   netlogging = (ARGV.delete("-n") or ARGV.delete("--net"))
-  norm       = (ARGV.delete("--norm") or not ARGV.delete("--no-norm"))
+  norm       = (ARGV.delete("--srv-singleton") or not
+                ARGV.delete("--no-srv-singleton"))
   aws = netlogging ? CLIAWS.new([nil, nil, {:logger=>Logger.new(STDERR)}]) :
                      CLIAWS.new
   types = nil
@@ -176,7 +177,7 @@ def main
     check_name(suffix)
     new_records = aws.ec2_zone
     mappings = (ARGV[2..-1] or [])
-    mapped = normed_with_mappings(mappings, suffix, new_records, norm)
+    mapped = normed_with_mappings(mappings, suffix, new_records)
     _, old_records = aws.route53_zone(suffix)
     changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) if confirm or not quiet
@@ -191,7 +192,7 @@ def main
     check_name(suffix)
     new_records = aws.ec2_zone
     mappings = (ARGV[2..-1] or [])
-    mapped = normed_with_mappings(mappings, suffix, new_records, norm)
+    mapped = normed_with_mappings(mappings, suffix, new_records)
     _, old_records = aws.route53_zone(suffix)
     changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) unless quiet
@@ -221,7 +222,7 @@ def main
     suffix, records = Zonify::YAML.read(STDIN)
     desired_suffix = ARGV[1]
     normed = if desired_suffix
-               normed_with_mappings([], desired_suffix, records, true)
+               normed_with_mappings([], desired_suffix, records)
              else
                Zonify.normalize(records)
              end
