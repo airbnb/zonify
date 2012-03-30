@@ -424,17 +424,39 @@ extend self
   end
 end
 
-# The Route 53 API does not want to accept more than 100 changes at once.
+# The Route 53 API has limitations on query size:
+#
+#  - A request cannot contain more than 100 Change elements.
+#
+#  - A request cannot contain more than 1000 ResourceRecord elements.
+#
+#  - The sum of the number of characters (including spaces) in all Value
+#    elements in a request cannot exceed 32,000 characters.
+#
 def chunk_changesets(changes)
   chunks = [[]]
   changes.each do |change|
-    if chunks.last.length < 10
+    if fits(change, chunks.last)
       chunks.last.push(change)
     else
       chunks.push([change])
     end
   end
   chunks
+end
+
+def measureRRs(changes)
+  [ change[:resource_records].length,
+    change[:resource_records].inject(0){|sum, s| s.length + sum } ]
+end
+
+def fits(change, changes)
+  new = changes + [change]
+  measured = measureRRs(new)
+  len, chars = measured.inject([0, 0]) do |acc, pair|
+    [ acc[0] + pair[0], acc[1] + pair[1] ]
+  end
+  new.length <= 100 and len <= 1000 and chars <= 30000 # margin of safety
 end
 
 module Mappings
