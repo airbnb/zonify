@@ -428,7 +428,7 @@ end
 def chunk_changesets(changes)
   chunks = [[]]
   changes.each do |change|
-    if chunks.last.length < 100
+    if chunks.last.length < 10
       chunks.last.push(change)
     else
       chunks.push([change])
