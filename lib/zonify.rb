@@ -445,7 +445,7 @@ def chunk_changesets(changes)
   chunks
 end
 
-def measureRRs(changes)
+def measureRRs(change)
   [ change[:resource_records].length,
     change[:resource_records].inject(0){|sum, s| s.length + sum } ]
 end
