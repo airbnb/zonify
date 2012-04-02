@@ -452,7 +452,7 @@ end
 
 def fits(change, changes)
   new = changes + [change]
-  measured = measureRRs(new)
+  measured = new.map{|change| measureRRs(change) }
   len, chars = measured.inject([0, 0]) do |acc, pair|
     [ acc[0] + pair[0], acc[1] + pair[1] ]
   end
