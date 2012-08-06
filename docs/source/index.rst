@@ -98,7 +98,8 @@ to disable them for pre-processing the YAML and then adding them with
 
   zonify r53 amz.example.com > r53.yaml
   zonify ec2 --no-srv-singleton > ec2.yaml
-  my-yaml-rewriter < ec2.yaml | zonify normalize amz.example.com > normed.yaml
+  my-yaml-rewriter < ec2.yaml > adjusted.yaml
+  zonify normalize amz.example.com < adjusted.yaml > normed.yaml
   zonify diff r53.yaml normed.yaml | zonify apply
 
 Sync Policy
