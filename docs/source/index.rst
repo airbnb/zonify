@@ -89,10 +89,10 @@ entries as well as straightforward, one-step synchronization.
   ``eips``
     List all Elastic IPs and DNS entries that map to them.
 
-The `--srv-singleton|--no-srv-singleton` options control creation of CNAMEs
-for singleton SRV records. They are enabled by default; but it can be useful
-to disable them for pre-processing the YAML and then adding them with
-``normalize``. For example:
+The `--[no-]srv-singleton` options control creation of CNAMEs for singleton
+SRV records. They are enabled by default; but it can be useful to disable them
+for pre-processing the YAML and then adding them with ``normalize``. For
+example:
 
 .. code-block:: bash
 
@@ -131,7 +131,7 @@ data as it was found in Route 53.
 Rewrite Rules
 -------------
 
-Rewrite rules take the form ``<domain>(:<domain)+``. To shorten names under
+Rewrite rules take the form ``<domain>(:<domain>)+``. To shorten names under
 the ``apache`` security group to ``web.amz.example.com``, use:
 
 .. code-block:: text

@@ -28,29 +28,34 @@ DESCRIPTION
        AWS_SECRET_ACCESS_KEY
        EC2_URL
 
-       These variables are used by many AWS libraries and tools.
+       These  variables  are used by many AWS libraries and tools. As a conve-
+       nience, the environment varialbe AWS_REGION may  be  used  with  region
+       nicknames:
 
-       The subcommands allow staged generation, transformation and auditing of
-       entries as well as straightforward, one-step synchronization.
+       AWS_REGION=eu-west-1
+
+       The  Zonify  subcommands  allow  staged  generation, transformation and
+       auditing of entries as well as straightforward,  one-step  synchroniza-
+       tion.
 
           ec2 (--srv-singleton|--no-srv-singleton)?
-                 Organizes instances,  load  balancers,  security  groups  and
-                 instance  metadata  into DNS entries, with the generic suffix
+                 Organizes  instances,  load  balancers,  security  groups and
+                 instance metadata into DNS entries, with the  generic  suffix
                  '.' (intended to be transformed by later commands).
 
           ec2/r53 (--types CNAME,SRV)? (--srv-singleton|--no-srv-singleton)?
-                 Creates a changes file,  describing  how  records  under  the
-                 given  suffix  would be created and deleted to bring it in to
+                 Creates  a  changes  file,  describing  how records under the
+                 given suffix would be created and deleted to bring it  in  to
                  sync with EC2. By default, only records of type CNAME and SRV
                  are examined and changed.
 
           r53    Capture all Route 53 records under the given suffix.
 
           diff (--types CNAME,SRV,A,MX,...)?
-                 Describe  changes  (which can be fed to the apply subcommand)
+                 Describe changes (which can be fed to the  apply  subcommand)
                  needed to bring a Route 53 domain in the first file into sync
                  with domain described in the second file. The suffix is taken
-                 from the first file. The  default  with  diff  (unlike  other
+                 from  the  first  file.  The  default with diff (unlike other
                  zonify subcommands) is to examine all record types.
 
           rewrite (--srv-singleton|--no-srv-singleton)?
@@ -62,50 +67,51 @@ DESCRIPTION
           apply  Apply a changes file.
 
           sync (--types CNAME,SRV)? (--srv-singleton|--no-srv-singleton)?
-                 Sync  the  given domain with EC2. By default, only records of
+                 Sync the given domain with EC2. By default, only  records  of
                  type CNAME and SRV are examined and changed.
 
           normalize
-                 Create CNAMEs for SRV records that have only  one  server  in
+                 Create  CNAMEs  for  SRV records that have only one server in
                  them and rebase records on to the given domain.
 
           eips   List all Elastic IPs and DNS entries that map to them.
 
-       The  --srv-singleton|--no-srv-singleton  options  control  creation  of
-       CNAMEs for singleton SRV records. They are enabled by default;  but  it
-       can  be  useful  to  disable  them for pre-processing the YAML and then
-       adding them with normalize. For example:
+       The --[no-]srv-singleton options control creation of CNAMEs for single-
+       ton  SRV  records. They are enabled by default; but it can be useful to
+       disable them for pre-processing the YAML and then adding them with nor-
+       malize. For example:
 
        zonify r53 amz.example.com > r53.yaml
        zonify ec2 --no-srv-singleton > ec2.yaml
-       my-yaml-rewriter < ec2.yaml | zonify normalize amz.example.com > normed.yaml
+       my-yaml-rewriter < ec2.yaml > adjusted.yaml
+       zonify normalize amz.example.com < adjusted.yaml > normed.yaml
        zonify diff r53.yaml normed.yaml | zonify apply
 
 SYNC POLICY
-       Zonify assumes the domain given on the command line is  entirely  under
-       the  control of Zonify; records not reflecting the present state of EC2
-       are scheduled for deletion in the generated  changesets.  This  can  be
+       Zonify  assumes  the domain given on the command line is entirely under
+       the control of Zonify; records not reflecting the present state of  EC2
+       are  scheduled  for  deletion  in the generated changesets. This can be
        controlled to some degree with the --types option.
 
        The sync scopes over the domain and not necessarily the entire Route 53
        zone.  Say, for example, one has example.com in a Route 53 zone and one
        plans to use amz.example.com for Amazon instance records.  In this sce-
-       nario, Zonify will only specify changes that delete or  create  records
+       nario,  Zonify  will only specify changes that delete or create records
        under amz.example.com; www.example.com, s0.mobile.example.com and simi-
        lar records will not be affected.
 
 YAML OUTPUT
        All records and change sets are sorted by name on output. The data com-
        ponents of records are also sorted. This ensures consistent output from
-       run to run; and allows the diff tool to return meaningful results  when
+       run  to run; and allows the diff tool to return meaningful results when
        outputs are compared.
 
-       One  exception  to this rule is the r53 subcommand, which preserves the
+       One exception to this rule is the r53 subcommand, which  preserves  the
        order of data as it was found in Route 53.
 
 REWRITE RULES
-       Rewrite rules take the form <domain>(:<domain)+. To shorten names under
-       the apache security group to web.amz.example.com, use:
+       Rewrite  rules  take  the  form  <domain>(:<domain>)+. To shorten names
+       under the apache security group to web.amz.example.com, use:
 
        apache.sg:web
 
@@ -114,9 +120,9 @@ REWRITE RULES
        apache.sg:apache.sg:web
 
 GENERATED RECORDS AND QUERYING
-       For  records  where  there  are  potentially  many  servers -- security
+       For records where  there  are  potentially  many  servers  --  security
        groups, tags, load balancers -- Zonify creates SRV records. As a conve-
-       nience,  when a SRV record has only one entry under it, a CNAME is also
+       nience, when a SRV record has only one entry under it, a CNAME is  also
        created.
 
        Records created include:
@@ -134,16 +140,16 @@ GENERATED RECORDS AND QUERYING
                  SRV records for instances behind Elastic Load Balancers.
 
           domU-*.priv., ip-*.priv
-                 Records pointing to the default hostname,  derived  from  the
+                 Records  pointing  to  the default hostname, derived from the
                  private DNS entry, set by many AMIs.
 
-       A  list  of  all  instances is placed under inst -- continuing with our
+       A list of all instances is placed under inst  --  continuing  with  our
        example above, this would be the SRV record _*._*.inst.amz.example.com.
        To obtain the list of all instances with dig:
 
        dig @8.8.8.8 +tcp +short _*._*.inst.amz.example.com SRV | cut -d' ' -f4
 
-       The  cut  call  is  necessary to remove some values, always nonces with
+       The cut call is necessary to remove some  values,  always  nonces  with
        Zonify, that are part of standard format SRV records.
 
 EXAMPLES
