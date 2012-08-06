@@ -20,6 +20,9 @@ class AWS
       a = [RightAws::Ec2, RightAws::ElbInterface, RightAws::Route53Interface]
       ec2, elb, r53 = a.map do |cls|
         cloned = args.map{|item| item.dup unless item.nil? }
+        if cls == RightAws::Route53Interface then cloned.each do |arg|
+          case arg when Hash then arg.delete(:region) end
+        end end
         Proc.new{|| cls.new(*cloned) }
       end
       Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
