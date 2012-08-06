@@ -13,8 +13,10 @@ require 'zonify'
 
 
 class CLIAWS
-  def initialize(args=[nil, nil, {:logger=>Logger.new('/dev/null')}])
-    @args = args
+  def initialize(access=nil, secret=nil,
+                 options={:logger=>Logger.new('/dev/null')})
+    region = ENV['AWS_REGION'] ? {:region=>ENV['AWS_REGION']} : {}
+    @args = [access, secret, options.merge(region)]
   end
   def respond_to?(sym)
     aws.respond_to?(sym)
@@ -132,7 +134,7 @@ def main
   netlogging = (ARGV.delete("-n") or ARGV.delete("--net"))
   norm       = (ARGV.delete("--srv-singleton") or not
                 ARGV.delete("--no-srv-singleton"))
-  aws = netlogging ? CLIAWS.new([nil, nil, {:logger=>Logger.new(STDERR)}]) :
+  aws = netlogging ? CLIAWS.new(nil, nil, :logger=>Logger.new(STDERR)) :
                      CLIAWS.new
   types = nil
   while i = ARGV.index('--types')
