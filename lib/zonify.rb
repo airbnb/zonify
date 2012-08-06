@@ -213,12 +213,8 @@ def tree(records)
 end
 
 # In the fully normalized tree of records, there are no multi-entry CNAMEs and
-# every single entry SRV record has a corresponding SRV record. All resource
+# every single entry SRV record has a corresponding CNAME record. All resource
 # record lists are sorted and deduplicated.
-# To normalize a tree, we introduce CNAMEs for every singleton SRV record and
-# merge them in. Then we transform all multi-entry CNAMEs to SRV records and
-# collect the CNAMEs to be removed. The CNAMEs are removed and the new SRV
-# records merged in.
 def normalize(tree)
   singles = Zonify.cname_singletons(tree)
   merged = Zonify.merge(tree, singles)
