@@ -39,9 +39,14 @@ variables to select regions and specify credentials:
     AWS_SECRET_ACCESS_KEY
     EC2_URL
 
-These variables are used by many AWS libraries and tools.
+These variables are used by many AWS libraries and tools. As a convenience,
+the environment varialbe ``AWS_REGION`` may be used with region nicknames:
 
-The subcommands allow staged generation, transformation and auditing of
+.. code-block:: text
+
+    AWS_REGION=eu-west-1
+
+The Zonify subcommands allow staged generation, transformation and auditing of
 entries as well as straightforward, one-step synchronization.
 
   ``ec2`` `(--srv-singleton|--no-srv-singleton)?`
