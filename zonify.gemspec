@@ -1,5 +1,5 @@
 git_version = begin
-  describe = `git describe --tags`
+  describe = `git describe --always`
   if $?.success?
     stripped = describe.strip
     /^([^-]+)-([0-9]+)-[^-]+$/.match(stripped) ? "#{$1}.#{$2}" : stripped
