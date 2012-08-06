@@ -377,9 +377,13 @@ def cut_down_elb_name(s)
 end
 
 LDH_RE = /^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])$/
-def string_to_ldh(s)
+def string_to_ldh_component(s)
   LDH_RE.match(s) ? s.downcase : s.downcase.gsub(/[^a-z0-9-]/, '-').
-                                            sub(/(^-|-$)/, '0')
+                                            sub(/(^[-]+|[-]+$)/, '')
+end
+
+def string_to_ldh(s)
+  s.split('.').map{|s| string_to_ldh_component(s) }.join('.')
 end
 
 def _dot(s)
