@@ -21,6 +21,11 @@ class CLIAWS
   def respond_to?(sym)
     aws.respond_to?(sym)
   end
+  def env_adapter # Adapt new-style environment variables to Right AWS.
+    ENV['AWS_ACCESS_KEY_ID'] = ENV['AWS_ACCESS_KEY'] # New from Amazon.
+    ENV['AWS_SECRET_ACCESS_KEY'] = ENV['AWS_SECRET_KEY'] # New from Amazon.
+    ENV['EC2_URL'] = nil if ENV['AWS_REGION'] # My own idea.
+  end
   def method_missing(sym, *args, &block)
     begin
       aws.send(sym, *args, &block)
@@ -29,6 +34,7 @@ class CLIAWS
     end
   end
   def aws
+    env_adapter
     @aws ||= Zonify::AWS.create(*@args)
   end
 end
