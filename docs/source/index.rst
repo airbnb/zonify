@@ -40,7 +40,7 @@ variables to select regions and specify credentials:
     EC2_URL
 
 These variables are used by many AWS libraries and tools. As a convenience,
-the environment varialbe ``AWS_REGION`` may be used with region nicknames:
+the environment variable ``AWS_REGION`` may be used with region nicknames:
 
 .. code-block:: text
 

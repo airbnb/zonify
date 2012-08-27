@@ -29,7 +29,7 @@ DESCRIPTION
        EC2_URL
 
        These  variables  are used by many AWS libraries and tools. As a conve-
-       nience, the environment varialbe AWS_REGION may  be  used  with  region
+       nience, the environment variable AWS_REGION may  be  used  with  region
        nicknames:
 
        AWS_REGION=eu-west-1
