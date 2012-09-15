@@ -21,7 +21,7 @@ instances, instance tags, load balancers and security groups. A mechanism for
 syncing these records with a zone stored in Route 53 is also provided.
 DESC
   s.license                  =  'BSD'
-  s.add_dependency(             'right_aws'                                   )
+  s.add_dependency(             'fog'                                         )
   s.files                    =  Dir['lib/**/*.rb', 'README']
   s.require_path             =  'lib'
   s.bindir                   =  'bin'

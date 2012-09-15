@@ -1,6 +1,6 @@
 require 'yaml'
 
-require 'right_aws'
+require 'fog'
 
 
 module Zonify
@@ -16,15 +16,10 @@ class AWS
     # Initialize all AWS interfaces with the same access keys and logger
     # (probably what you want to do). These are set up lazily; unused
     # interfaces will not be initialized.
-    def create(*args)
-      a = [RightAws::Ec2, RightAws::ElbInterface, RightAws::Route53Interface]
-      ec2, elb, r53 = a.map do |cls|
-        cloned = args.map{|item| item.dup unless item.nil? }
-        if cls == RightAws::Route53Interface then cloned.each do |arg|
-          case arg when Hash then arg.delete(:region) end
-        end end
-        Proc.new{|| cls.new(*cloned) }
-      end
+    def create(options)
+      ec2 = Proc.new{|| Fog::Compute.new(options.merge(:provider=>'AWS')) }
+      elb = Proc.new{|| Fog::AWS::ELB.new(options) }
+      r53 = Proc.new{|| Fog::DNS.new(options.merge(:provider=>'AWS')) }
       Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
     end
   end
@@ -86,24 +81,20 @@ class AWS
     end
     filtered
   end
-  def instances(*instances)
-    ec2.describe_instances(*instances).inject({}) do |acc, i|
-      dns = i[:dns_name]
+  def instances
+    ec2.servers.inject({}) do |acc, i|
+      dns = i.dns_name
       # The default hostname for EC2 instances is derived from their internal
       # DNS entry.
       unless dns.nil? or dns.empty?
-        groups = case
-                 when i[:aws_groups] then i[:aws_groups]
-                 when i[:groups]     then i[:groups].map{|g| g[:group_name] }
-                 else                     []
-                 end
+        groups = (i.groups or [])
         attrs = { :sg => groups,
-                  :tags => (i[:tags] or []),
+                  :tags => (i.tags or []),
                   :dns => Zonify.dot_(dns).downcase }
-        if i[:private_dns_name]
-          attrs[:priv] = i[:private_dns_name].split('.').first.downcase
+        if i.private_dns_name
+          attrs[:priv] = i.private_dns_name.split('.').first.downcase
         end
-        acc[i[:aws_instance_id]] = attrs
+        acc[i.id] = attrs
       end
       acc
     end
