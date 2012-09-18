@@ -100,7 +100,7 @@ class AWS
     end
   end
   def load_balancers
-    elb.describe_load_balancers.map do |elb|
+    elb.load_balancers.map do |elb|
       { :instances => elb[:instances],
         :prefix    => Zonify.cut_down_elb_name(elb[:dns_name]) }
     end
@@ -166,10 +166,9 @@ def zone(hosts, elbs)
       Zonify::RR.srv('inst.', name) ] +
     info[:tags].map do |tag|
       k, v = tag
-      unless k.empty? or k.nil? or v.empty? or v.nil?
-        tag_dn = "#{Zonify.string_to_ldh(v)}.#{Zonify.string_to_ldh(k)}.tag."
-        Zonify::RR.srv(tag_dn, name)
-      end
+      next if k.nil? or v.nil? or k.empty? or v.empty?
+      tag_dn = "#{Zonify.string_to_ldh(v)}.#{Zonify.string_to_ldh(k)}.tag."
+      Zonify::RR.srv(tag_dn, name)
     end.compact
   end.flatten
   elb_records = elbs.map do |elb|
