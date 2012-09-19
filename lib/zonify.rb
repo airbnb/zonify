@@ -60,8 +60,6 @@ class AWS
     if relevant_zone
       relevant_records = relevant_zone.records.map do |rr|
         if rr.name.end_with?(suffix_)
-          require 'pp'
-          pp rr
           rr.attributes.merge(:name=>Zonify.read_octal(rr.name))
         end
       end.compact
@@ -148,11 +146,11 @@ end
 module RR
 extend self
   def srv(service, name)
-    { :type=>'SRV', :data=>"0 0 0 #{Zonify.dot_(name)}",
+    { :type=>'SRV', :value=>"0 0 0 #{Zonify.dot_(name)}",
       :ttl=>'100',  :name=>"#{Zonify::Resolve::SRV_PREFIX}.#{service}" }
   end
   def cname(name, dns, ttl='100')
-    { :type=>'CNAME', :data=>Zonify.dot_(dns),
+    { :type=>'CNAME', :value=>Zonify.dot_(dns),
       :ttl=>ttl,      :name=>Zonify.dot_(name) }
   end
 end
@@ -194,20 +192,22 @@ def zone(hosts, elbs)
 end
 
 # Group DNS entries into a tree, with name at the top level, type at the
-# next level and then resource records and TTL at the leaves.
+# next level and then resource records and TTL at the leaves. If the records
+# are part of a weighted record set, then the record data is pushed down one
+# more level, with the "set identifier" in between the type and data.
 def tree(records)
   records.inject({}) do |acc, record|
     name, type, ttl, value,
     weight, set           = [ record[:name],   record[:type],
                               record[:ttl],    record[:value],
                               record[:weight], record[:set_identifier] ]
-
-    acc[name]                      ||= {}
-    acc[name][type]                ||= { :ttl=>ttl }
-    acc[name][type][:value]        ||= []
-    acc[name][type][:value]         << value
-    acc[name][type][:weight]         = weight if weight
-    acc[name][type][:set_identifier] = set if set
+    reference = acc[name]       ||= {}
+    reference = reference[type] ||= {}
+    reference = reference[set]  ||= {} if set
+    reference[:ttl]               = ttl
+    reference[:value]           ||= []
+    reference[:value]            << value
+    reference[:weight]            = weight if weight
     acc
   end
 end
@@ -217,6 +217,8 @@ end
 # Singleton SRVs are associated with a single CNAME. All resource record lists
 # are sorted and deduplicated.
 def normalize(tree)
+  singles = Zonify.cname_singletons(tree)
+  merged = Zonify.merge(tree, singles)
   remove, srvs = Zonify.srv_from_cnames(merged)
   cleared = merged.inject({}) do |acc, pair|
     name, info = pair
@@ -228,8 +230,6 @@ def normalize(tree)
     end
     acc
   end
-  singles = Zonify.cname_singletons(tree)
-  merged = Zonify.merge(tree, singles)
   Zonify.merge(cleared, srvs)
 end
 
