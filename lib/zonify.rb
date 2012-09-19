@@ -17,9 +17,12 @@ class AWS
     # (probably what you want to do). These are set up lazily; unused
     # interfaces will not be initialized.
     def create(options)
-      ec2 = Proc.new{|| Fog::Compute.new(options.merge(:provider=>'AWS')) }
-      elb = Proc.new{|| Fog::AWS::ELB.new(options) }
-      r53 = Proc.new{|| Fog::DNS.new(options.merge(:provider=>'AWS')) }
+      options_ec2 = options.merge(:provider=>'AWS')
+      ec2 = Proc.new{|| Fog::Compute.new(options_ec2) }
+      options_elb = options.dup
+      elb = Proc.new{|| Fog::AWS::ELB.new(options_elb) }
+      options_r53 = options_ec2.dup.delete_if{|k, _| k == :region }
+      r53 = Proc.new{|| Fog::DNS.new(options_r53) }
       Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
     end
   end
@@ -51,15 +54,15 @@ class AWS
   # the longest name is chosen.
   def route53_zone(suffix)
     suffix_ = Zonify.dot_(suffix)
-    relevant_zone = r53.list_hosted_zones.select do |zone|
-      suffix_.end_with?(zone[:name])
-    end.sort_by{|zone| zone[:name].length }.last
+    relevant_zone = r53.zones.select do |zone|
+      suffix_.end_with?(zone.domain)
+    end.sort_by{|zone| zone.domain.length }.last
     if relevant_zone
-      zone_id = relevant_zone[:aws_id]
-      relevant_records = r53.list_resource_record_sets(zone_id).map do |rr|
-        if rr[:name].end_with?(suffix_)
-          rr[:name] = Zonify.read_octal(rr[:name])
-          rr
+      relevant_records = relevant_zone.records.map do |rr|
+        if rr.name.end_with?(suffix_)
+          require 'pp'
+          pp rr
+          rr.attributes.merge(:name=>Zonify.read_octal(rr.name))
         end
       end.compact
       [relevant_zone, Zonify.tree_from_right_aws(relevant_records)]
@@ -68,10 +71,9 @@ class AWS
   # Apply a changeset to the records in Route53. The records must all be under
   # the same zone and suffix.
   def apply(changes, comment='Synced with Zonify tool.')
-    require 'pp'
     # Dumb way to do this because I can not figure out #reject!
-    keep = changes.select{|c| c[:resource_records].length <= 100 }
-    filtered = changes.select{|c| c[:resource_records].length > 100 }
+    keep = changes.select{|c| c[:value].length <= 100 }
+    filtered = changes.select{|c| c[:value].length > 100 }
     unless keep.empty?
       suffix  = keep.first[:name] # Works because of longest submatch rule.
       zone, _ = route53_zone(suffix)
@@ -101,31 +103,31 @@ class AWS
   end
   def load_balancers
     elb.load_balancers.map do |elb|
-      { :instances => elb[:instances],
-        :prefix    => Zonify.cut_down_elb_name(elb[:dns_name]) }
+      { :instances => elb.instances,
+        :prefix    => Zonify.cut_down_elb_name(elb.dns_name) }
     end
   end
   def eips
-    ec2.describe_addresses
+    ec2.addresses
   end
   def eip_scan
-    addresses = eips.map{|eip| eip[:public_ip] }
+    addresses = eips.map{|eip| eip.public_ip }
     result = {}
     addresses.each{|a| result[a] = [] }
-    r53.list_hosted_zones.sort_by{|zone| zone[:name].reverse }.each do |zone|
-      r53.list_resource_record_sets(zone[:aws_id]).each do |rr|
-        check = case rr[:type]
+    r53.zones.sort_by{|zone| zone.domain.reverse }.each do |zone|
+      zone.records.each do |rr|
+        check = case rr.type
                 when 'CNAME'
-                  rr[:resource_records].map do |s|
+                  rr.value.map do |s|
                     Zonify.ec2_dns_to_ip(s)
                   end.compact
                 when 'A','AAAA'
-                  rr[:resource_records]
+                  rr.value
                 end
         check ||= []
         found = addresses.select{|a| check.member? a }.sort
         unless found.empty?
-          name = Zonify.read_octal(rr[:name])
+          name = Zonify.read_octal(rr.name)
           found.each{|a| result[a] << name }
         end
       end
@@ -147,9 +149,9 @@ module RR
 extend self
   def srv(service, name)
     { :type=>'SRV', :data=>"0 0 0 #{Zonify.dot_(name)}",
-      :ttl=>100,    :name=>"#{Zonify::Resolve::SRV_PREFIX}.#{service}" }
+      :ttl=>'100',  :name=>"#{Zonify::Resolve::SRV_PREFIX}.#{service}" }
   end
-  def cname(name, dns, ttl=100)
+  def cname(name, dns, ttl='100')
     { :type=>'CNAME', :data=>Zonify.dot_(dns),
       :ttl=>ttl,      :name=>Zonify.dot_(name) }
   end
@@ -161,8 +163,8 @@ def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
     name = "#{id}.inst."
     priv = "#{info[:priv]}.priv."
-    [ Zonify::RR.cname(name, info[:dns], 86400), # Long TTLs for host records.
-      Zonify::RR.cname(priv, info[:dns], 86400), # Long TTLs for host records.
+    [ Zonify::RR.cname(name, info[:dns], '86400'),
+      Zonify::RR.cname(priv, info[:dns], '86400'),
       Zonify::RR.srv('inst.', name) ] +
     info[:tags].map do |tag|
       k, v = tag
@@ -191,26 +193,30 @@ def zone(hosts, elbs)
   [host_records, elb_records, sg_records].flatten
 end
 
-# Group DNS entries by into a tree, with name at the top level, type at the
+# Group DNS entries into a tree, with name at the top level, type at the
 # next level and then resource records and TTL at the leaves.
 def tree(records)
   records.inject({}) do |acc, record|
-    name, type, ttl, data = [ record[:name], record[:type],
-                              record[:ttl],  record[:data]  ]
-    acc[name]                          ||= {}
-    acc[name][type]                    ||= { :ttl=>ttl }
-    acc[name][type][:resource_records] ||= []
-    acc[name][type][:resource_records]  << data
+    name, type, ttl, value,
+    weight, set           = [ record[:name],   record[:type],
+                              record[:ttl],    record[:value],
+                              record[:weight], record[:set_identifier] ]
+
+    acc[name]                      ||= {}
+    acc[name][type]                ||= { :ttl=>ttl }
+    acc[name][type][:value]        ||= []
+    acc[name][type][:value]         << value
+    acc[name][type][:weight]         = weight if weight
+    acc[name][type][:set_identifier] = set if set
     acc
   end
 end
 
-# In the fully normalized tree of records, there are no multi-entry CNAMEs and
-# every single entry SRV record has a corresponding CNAME record. All resource
-# record lists are sorted and deduplicated.
+# In the fully normalized tree of records, each multi-element SRV is
+# associated with a set of equally weighted CNAMEs, one for each record.
+# Singleton SRVs are associated with a single CNAME. All resource record lists
+# are sorted and deduplicated.
 def normalize(tree)
-  singles = Zonify.cname_singletons(tree)
-  merged = Zonify.merge(tree, singles)
   remove, srvs = Zonify.srv_from_cnames(merged)
   cleared = merged.inject({}) do |acc, pair|
     name, info = pair
@@ -222,6 +228,8 @@ def normalize(tree)
     end
     acc
   end
+  singles = Zonify.cname_singletons(tree)
+  merged = Zonify.merge(tree, singles)
   Zonify.merge(cleared, srvs)
 end
 
@@ -232,11 +240,11 @@ def cname_singletons(tree)
     name, info = pair
     name_clipped = name.sub("#{Zonify::Resolve::SRV_PREFIX}.", '')
     info.each do |type, data|
-      if 'SRV' == type and 1 == data[:resource_records].length
-        rr_clipped = data[:resource_records].map do |rr|
+      if 'SRV' == type and 1 == data[:value].length
+        rr_clipped = data[:value].map do |rr|
           Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
         end
-        new_data = data.merge(:resource_records=>rr_clipped)
+        new_data = data.merge(:value=>rr_clipped)
         acc[name_clipped] = { 'CNAME' => new_data }
       end
     end
@@ -245,17 +253,17 @@ def cname_singletons(tree)
 end
 
 # Find CNAMEs with multiple records and create SRV records to replace them,
-# as well as returning the list of CNAMEs so replaced.
+# as well as returning the list of CNAMEs to replace.
 def srv_from_cnames(tree)
   remove = []
   srvs = tree.inject({}) do |acc, pair|
     name, info = pair
     name_srv = "#{Zonify::Resolve::SRV_PREFIX}.#{name}"
     info.each do |type, data|
-      if 'CNAME' == type and 1 < data[:resource_records].length
+      if 'CNAME' == type and 1 < data[:value].length
         remove.push(name)
-        rr_srv = data[:resource_records].map{|s| '0 0 0 ' + s }
-        acc[name_srv]['SRV'] = { :ttl=>100, :resource_records=>rr_srv }
+        rr_srv = data[:value].map{|s| '0 0 0 ' + s }
+        acc[name_srv]['SRV'] = { :ttl=>100, :value=>rr_srv }
       end
     end
     acc
@@ -266,11 +274,16 @@ end
 # Collate RightAWS style records in to the tree format used by the tree method.
 def tree_from_right_aws(records)
   records.inject({}) do |acc, record|
-    name, type, ttl, data = [ record[:name], record[:type],
-                              record[:ttl],  record[:resource_records] ]
-    acc[name]                          ||= {}
-    acc[name][type]                      = { :ttl => ttl }
-    acc[name][type][:resource_records]   = (data or [])
+    name, type, ttl, value,
+    weight, set           = [ record[:name],   record[:type],
+                              record[:ttl],    record[:value],
+                              record[:weight], record[:set_identifier] ]
+    reference = acc[name]       ||= {}
+    reference = reference[type] ||= {}
+    reference = reference[set]  ||= {} if set
+    reference[:ttl]               = ttl
+    reference[:value]             = (value or [])
+    reference[:weight]            = weight if weight
     acc
   end
 end
@@ -286,9 +299,9 @@ def merge(*trees)
       acc[name]    ||= {}
       info.inject(acc[name]) do |acc_, pair_|
         type, data   = pair_
-        acc_[type] ||= data.merge(:resource_records=>[])
-        new_rrs      = data[:resource_records] + acc_[type][:resource_records]
-        acc_[type][:resource_records] = new_rrs.uniq.sort
+        acc_[type] ||= data.merge(:value=>[])
+        new_rrs      = data[:value] + acc_[type][:value]
+        acc_[type][:value] = new_rrs.uniq.sort
         acc_
       end
       acc
@@ -336,8 +349,8 @@ end
 # (keys missing in one should be missing in the other).
 def compare_records(a, b)
   as, bs = [a, b].map do |record|
-    [:name, :type, :action, :ttl].map{|k| record[k] } <<
-      Zonify.normRRs(record[:resource_records])
+    [:name, :type, :action, :ttl, :weight].map{|k| record[k] } <<
+      Zonify.normRRs(record[:value])
   end
   as == bs
 end
@@ -439,10 +452,12 @@ def chunk_changesets(changes)
 end
 
 def measureRRs(change)
-  [ change[:resource_records].length,
-    change[:resource_records].inject(0){|sum, s| s.length + sum } ]
+  [ change[:value].length,
+    change[:value].inject(0){|sum, s| s.length + sum } ]
 end
 
+# Determine whether we can add this record to the existing records, subject to
+# Amazon size constraints.
 def fits(change, changes)
   new = changes + [change]
   measured = new.map{|change| measureRRs(change) }
@@ -488,11 +503,11 @@ extend self
         acc[name] ||= {}
         info.inject(acc[name]) do |acc_, pair_|
           type, data = pair_
-          acc_[type] ||= { :resource_records=>[] }
+          acc_[type] ||= { :value=>[] }
           rrs = case type
                 when 'SRV'
                   if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
-                    data[:resource_records].map do |rr|
+                    data[:value].map do |rr|
                       if /^(.+) ([^ ]+)$/.match(rr)
                         "#{$1} #{Zonify::Mappings.names($2, mappings).first}"
                       else
@@ -500,14 +515,14 @@ extend self
                       end
                     end
                   else
-                    data[:resource_records]
+                    data[:value]
                   end
                 else
-                  data[:resource_records]
+                  data[:value]
                 end
           rrs ||= []
-          new_rrs = rrs + acc_[type][:resource_records]
-          acc_[type] = data.merge(:resource_records=>new_rrs)
+          new_rrs = rrs + acc_[type][:value]
+          acc_[type] = data.merge(:value=>new_rrs)
           acc_
         end
       end
