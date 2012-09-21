@@ -230,7 +230,9 @@ def normalize(tree)
     end
     acc
   end
-  Zonify.merge(cleared, srvs)
+  stage2 = Zonify.merge(cleared, srvs)
+  multis = Zonify.cname_multitudinous(stage2)
+  stage3 = Zonify.merge(stage2, multis)
 end
 
 # For SRV records with a single entry, create a singleton CNAME as a
@@ -271,6 +273,27 @@ def srv_from_cnames(tree)
   [remove, srvs]
 end
 
+# For every SRV record that is not a singleton and that does not shadow an
+# existing CNAME, we create WRRs for item in the SRV record.
+def cname_multitudinous(tree)
+  tree.inject({}) do |acc, pair|
+    name, info = pair
+    name_clipped = name.sub("#{Zonify::Resolve::SRV_PREFIX}.", '')
+    info.each do |type, data|
+      if 'SRV' == type and 1 < data[:value].length
+        wrrs = data[:value].inject({}) do |accumulator, rr|
+          server = Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
+          id = server.split('.')[0]
+          accumulator[id] = data.merge(:value=>server)
+          accumulator
+        end
+        acc[name_clipped] = { 'CNAME' => wrrs }
+      end
+    end
+    acc
+  end
+end
+
 # Collate RightAWS style records in to the tree format used by the tree method.
 def tree_from_right_aws(records)
   records.inject({}) do |acc, record|
@@ -298,10 +321,16 @@ def merge(*trees)
       name, info     = pair
       acc[name]    ||= {}
       info.inject(acc[name]) do |acc_, pair_|
-        type, data   = pair_
-        acc_[type] ||= data.merge(:value=>[])
-        new_rrs      = data[:value] + acc_[type][:value]
-        acc_[type][:value] = new_rrs.uniq.sort
+        type, data = pair_
+        case
+        when (not acc_[type])
+          acc_[type] = data.dup
+        when (not acc_[type][:value] and not data[:value]) # WRR records.
+          d = data.merge(acc_[type])
+          acc_[type] = d
+        else # Not WRR records.
+          acc_[type][:value] = (data[:value] + acc_[type][:value]).uniq.sort
+        end
         acc_
       end
       acc
