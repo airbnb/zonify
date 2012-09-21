@@ -17,7 +17,8 @@ class AWS
     # (probably what you want to do). These are set up lazily; unused
     # interfaces will not be initialized.
     def create(options)
-      options_ec2 = options.merge(:provider=>'AWS')
+      options_ec2 = options.merge( :provider=>'AWS',
+                                   :connection_options=>{:nonblock=>false} )
       ec2 = Proc.new{|| Fog::Compute.new(options_ec2) }
       options_elb = options.dup
       elb = Proc.new{|| Fog::AWS::ELB.new(options_elb) }
