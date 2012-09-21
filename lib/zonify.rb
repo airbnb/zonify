@@ -266,6 +266,7 @@ def srv_from_cnames(tree)
       if 'CNAME' == type and 1 < data[:value].length
         remove.push(name)
         rr_srv = data[:value].map{|s| '0 0 0 ' + s }
+        acc[name_srv]      ||= { }
         acc[name_srv]['SRV'] = { :ttl=>100, :value=>rr_srv }
       end
     end
