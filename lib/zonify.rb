@@ -20,7 +20,7 @@ class AWS
       options_ec2 = options.merge( :provider=>'AWS',
                                    :connection_options=>{:nonblock=>false} )
       ec2 = Proc.new{|| Fog::Compute.new(options_ec2) }
-      options_elb = options.dup
+      options_elb = options_ec2.dup.delete_if{|k, _| k == :provider }
       elb = Proc.new{|| Fog::AWS::ELB.new(options_elb) }
       options_r53 = options_ec2.dup.delete_if{|k, _| k == :region }
       r53 = Proc.new{|| Fog::DNS.new(options_r53) }
