@@ -350,7 +350,7 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
       if types.member? '*' or types.member? type
         old_data = ((old and old[type]) or {})
         unless Zonify.compare_records(old_data, data)
-          data.merge(:name=>name, :type=>type, :action=>:create)
+          Zonify.hoist(data, name, type, :create)
         end
       end
     end.compact
@@ -361,7 +361,7 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
       if types.member? '*' or types.member? type
         new_data = ((new and new[type]) or {})
         unless Zonify.compare_records(data, new_data)
-          data.merge(:name=>name, :type=>type, :action=>:delete)
+          Zonify.hoist(data, name, type, :delete)
         end
       end
     end.compact
@@ -374,12 +374,21 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
   end
 end
 
+def hoist(data, name, type, action)
+  meta = {:name=>name, :type=>type, :action=>action}
+  if data[:value] # Not a WRR.
+    [data.merge(meta)]
+  else # Is a WRR.
+    data.map{|k,v| v.merge(meta.merge(:set_identifier=>k)) }
+  end
+end
+
 # Determine whether two resource record sets are the same in all respects
 # (keys missing in one should be missing in the other).
 def compare_records(a, b)
+  keys = ((a.keys | b.keys) - [:value]).sort_by{|s| s.to_s }
   as, bs = [a, b].map do |record|
-    [:name, :type, :action, :ttl, :weight].map{|k| record[k] } <<
-      Zonify.normRRs(record[:value])
+    keys.map{|k| record[k] } << Zonify.normRRs(record[:value])
   end
   as == bs
 end

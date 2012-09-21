@@ -72,8 +72,10 @@ def display(changes)
     'No changes; nothing to do.'
   else
     summary = changes.inject({}) do |acc, change|
-      acc["#{change[:name]} #{change[:type]}"] ||= []
-      acc["#{change[:name]} #{change[:type]}"]  << change[:action]
+      name, type, set = [change[:name], change[:type], change[:set_identifier]]
+      key = "#{name} #{type}" + ( set ? " (#{set})" : "" )
+      acc[key] ||= []
+      acc[key]  << change[:action]
       acc
     end.map do |k, v|
       case v
