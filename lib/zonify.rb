@@ -543,7 +543,7 @@ extend self
         acc[name] ||= {}
         info.inject(acc[name]) do |acc_, pair_|
           type, data = pair_
-          acc_[type] ||= { :value=>[] }
+          acc_[type] ||= { :value=>[] } # TODO: Not always safe...
           rrs = case type
                 when 'SRV'
                   if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
