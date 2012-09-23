@@ -79,9 +79,9 @@ def display(changes)
       acc
     end.map do |k, v|
       case v
-      when [:delete, :create] then [k, 'replace']
-      when [:delete]          then [k, 'delete']
-      when [:create]          then [k, 'create']
+      when ['DELETE', 'CREATE'] then [k, 'replace']
+      when ['DELETE']          then [k, 'delete']
+      when ['CREATE']          then [k, 'create']
       end
     end.sort
     len = summary.map{|name, op| [name.length, 64].min }.max

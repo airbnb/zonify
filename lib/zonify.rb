@@ -77,7 +77,15 @@ class AWS
       suffix  = keep.first[:name] # Works because of longest submatch rule.
       zone, _ = route53_zone(suffix)
       Zonify.chunk_changesets(keep).each do |changeset|
-        r53.change_resource_record_sets(zone[:aws_id], changeset, comment)
+        rekeyed = changeset.map do |record|
+          record.inject({}) do |acc, pair|
+            k, v = pair
+            k_ = k == :value ? :resource_records : k
+            acc[k_] = v
+            acc
+          end
+        end
+        r53.change_resource_record_sets(zone.id, rekeyed, :comment=>comment)
       end
     end
     filtered
@@ -352,7 +360,7 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
       if types.member? '*' or types.member? type
         old_data = ((old and old[type]) or {})
         unless Zonify.compare_records(old_data, data)
-          Zonify.hoist(data, name, type, :create)
+          Zonify.hoist(data, name, type, 'CREATE')
         end
       end
     end.compact
@@ -363,7 +371,7 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
       if types.member? '*' or types.member? type
         new_data = ((new and new[type]) or {})
         unless Zonify.compare_records(data, new_data)
-          Zonify.hoist(data, name, type, :delete)
+          Zonify.hoist(data, name, type, 'DELETE')
         end
       end
     end.compact
@@ -371,7 +379,7 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
   (delete_set.flatten + create_set.flatten).sort_by do |record|
     # Sort actions so that creation of a record comes immediately after a
     # deletion.
-    delete_first = record[:action] == :delete ? 0 : 1
+    delete_first = record[:action] == 'DELETE' ? 0 : 1
     [record[:name], record[:type], delete_first]
   end
 end
