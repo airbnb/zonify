@@ -543,26 +543,19 @@ extend self
         acc[name] ||= {}
         info.inject(acc[name]) do |acc_, pair_|
           type, data = pair_
-          acc_[type] ||= { :value=>[] } # TODO: Not always safe...
-          rrs = case type
-                when 'SRV'
-                  if name.start_with? "#{Zonify::Resolve::SRV_PREFIX}."
-                    data[:value].map do |rr|
-                      if /^(.+) ([^ ]+)$/.match(rr)
-                        "#{$1} #{Zonify::Mappings.names($2, mappings).first}"
-                      else
-                        rr
-                      end
+          acc_[type] ||= {}
+          prefix_ = Zonify.dot_(Zonify::Resolve::SRV_PREFIX)
+          rrs = if type == 'SRV' and name.start_with? prefix_ and data[:value]
+                  data[:value].map do |rr|
+                    if /^(.+) ([^ ]+)$/.match(rr)
+                      "#{$1} #{Zonify::Mappings.names($2, mappings).first}"
+                    else
+                      rr
                     end
-                  else
-                    data[:value]
                   end
-                else
-                  data[:value]
                 end
-          rrs ||= []
-          new_rrs = rrs + acc_[type][:value]
-          acc_[type] = data.merge(:value=>new_rrs)
+          addenda = rrs ? { :value => rrs + (acc_[type][:value] or []) } : {}
+          acc_[type] = data.merge(addenda)
           acc_
         end
       end
