@@ -1,4 +1,4 @@
-
+require 'rubygems'
 $gemspec_file = nil
 $gemspec = nil
 
@@ -38,7 +38,7 @@ end
 task :sign do
   gem = "#{$gemspec.name}-#{$gemspec.version}.gem"
   system "gpg --sign --detach #{gem}"
-  system "sha1sum #{gem} > #{gem}.sha"
+  system "shasum --portable --algorithm 512 #{gem} > #{gem}.sha"
 end
 task :sign => [:gem, :gemspec]
 
