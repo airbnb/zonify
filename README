@@ -81,6 +81,9 @@ DESCRIPTION
        disable them for pre-processing the YAML and then adding them with nor-
        malize. For example:
 
+       The  --[no-]srv-singleton  options  also  control  creation of weighted
+       round-robin CNAMEs, an infelicity in nomenclature.
+
        zonify r53 amz.example.com > r53.yaml
        zonify ec2 --no-srv-singleton > ec2.yaml
        my-yaml-rewriter < ec2.yaml > adjusted.yaml
@@ -88,29 +91,29 @@ DESCRIPTION
        zonify diff r53.yaml normed.yaml | zonify apply
 
 SYNC POLICY
-       Zonify  assumes  the domain given on the command line is entirely under
-       the control of Zonify; records not reflecting the present state of  EC2
-       are  scheduled  for  deletion  in the generated changesets. This can be
+       Zonify assumes the domain given on the command line is  entirely  under
+       the  control of Zonify; records not reflecting the present state of EC2
+       are scheduled for deletion in the generated  changesets.  This  can  be
        controlled to some degree with the --types option.
 
        The sync scopes over the domain and not necessarily the entire Route 53
        zone.  Say, for example, one has example.com in a Route 53 zone and one
        plans to use amz.example.com for Amazon instance records.  In this sce-
-       nario,  Zonify  will only specify changes that delete or create records
+       nario, Zonify will only specify changes that delete or  create  records
        under amz.example.com; www.example.com, s0.mobile.example.com and simi-
        lar records will not be affected.
 
 YAML OUTPUT
        All records and change sets are sorted by name on output. The data com-
        ponents of records are also sorted. This ensures consistent output from
-       run  to run; and allows the diff tool to return meaningful results when
+       run to run; and allows the diff tool to return meaningful results  when
        outputs are compared.
 
-       One exception to this rule is the r53 subcommand, which  preserves  the
+       One  exception  to this rule is the r53 subcommand, which preserves the
        order of data as it was found in Route 53.
 
 REWRITE RULES
-       Rewrite  rules  take  the  form  <domain>(:<domain>)+. To shorten names
+       Rewrite rules take the  form  <domain>(:<domain>)+.  To  shorten  names
        under the apache security group to web.amz.example.com, use:
 
        apache.sg:web
@@ -120,10 +123,11 @@ REWRITE RULES
        apache.sg:apache.sg:web
 
 GENERATED RECORDS AND QUERYING
-       For records where  there  are  potentially  many  servers  --  security
-       groups, tags, load balancers -- Zonify creates SRV records. As a conve-
-       nience, when a SRV record has only one entry under it, a CNAME is  also
-       created.
+       For  records  where  there  are  potentially  many  servers -- security
+       groups, tags, load balancers -- Zonify creates SRV records. When a  SRV
+       record  has  only one entry under it, a simple CNAME is created. When a
+       SRV record contains multiple  records,  multiple  weighted  round-robin
+       CNAMEs are created, one for each server in the SRV record.
 
        Records created include:
 
