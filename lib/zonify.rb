@@ -294,7 +294,7 @@ def cname_multitudinous(tree)
         wrrs = data[:value].inject({}) do |accumulator, rr|
           server = Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
           id = server.split('.').first # Always the isntance ID.
-          accumulator[id] = data.merge(:value=>server, :weight=>"16")
+          accumulator[id] = data.merge(:value=>[server], :weight=>"16")
           accumulator
         end
         acc[name_clipped] = { 'CNAME' => wrrs }
