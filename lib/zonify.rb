@@ -213,9 +213,9 @@ def tree(records)
     reference = acc[name]       ||= {}
     reference = reference[type] ||= {}
     reference = reference[set]  ||= {} if set
+    appended                      = (reference[:value] or []) << value
     reference[:ttl]               = ttl
-    reference[:value]           ||= []
-    reference[:value]            << value
+    reference[:value]             = appended.sort.uniq
     reference[:weight]            = weight if weight
     acc
   end
