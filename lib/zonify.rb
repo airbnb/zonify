@@ -59,7 +59,7 @@ class AWS
       suffix_.end_with?(zone.domain)
     end.sort_by{|zone| zone.domain.length }.last
     if relevant_zone
-      relevant_records = relevant_zone.records.map do |rr|
+      relevant_records = relevant_zone.records.all!.map do |rr|
         if rr.name.end_with?(suffix_)
           rr.attributes.merge(:name=>Zonify.read_octal(rr.name))
         end
