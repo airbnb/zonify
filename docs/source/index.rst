@@ -94,6 +94,9 @@ SRV records. They are enabled by default; but it can be useful to disable them
 for pre-processing the YAML and then adding them with ``normalize``. For
 example:
 
+The `--[no-]srv-singleton` options also control creation of weighted
+round-robin CNAMEs, an infelicity in nomenclature.
+
 .. code-block:: bash
 
   zonify r53 amz.example.com > r53.yaml
@@ -148,8 +151,10 @@ Generated Records and Querying
 ------------------------------
 
 For records where there are potentially many servers -- security groups, tags,
-load balancers -- Zonify creates SRV records. As a convenience, when a SRV
-record has only one entry under it, a CNAME is also created.
+load balancers -- Zonify creates SRV records. When a SRV record has only one
+entry under it, a simple CNAME is created. When a SRV record contains multiple
+records, multiple weighted round-robin CNAMEs are created, one for each server
+in the SRV record.
 
 Records created include:
 
