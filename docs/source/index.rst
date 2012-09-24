@@ -35,8 +35,8 @@ variables to select regions and specify credentials:
 
 .. code-block:: text
 
-    AWS_ACCESS_KEY_ID
-    AWS_SECRET_ACCESS_KEY
+    AWS_ACCESS_KEY AWS_ACCESS_KEY_ID
+    AWS_SECRET_KEY AWS_SECRET_ACCESS_KEY
     EC2_URL
 
 These variables are used by many AWS libraries and tools. As a convenience,
