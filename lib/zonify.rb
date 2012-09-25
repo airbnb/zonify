@@ -122,7 +122,7 @@ class AWS
     result = {}
     addresses.each{|a| result[a] = [] }
     r53.zones.sort_by{|zone| zone.domain.reverse }.each do |zone|
-      zone.records.each do |rr|
+      zone.records.all!.each do |rr|
         check = case rr.type
                 when 'CNAME'
                   rr.value.map do |s|
