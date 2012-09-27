@@ -10,7 +10,7 @@ git_version = begin
 end
 @spec = Gem::Specification.new do |s|
   s.name                     =  'zonify'
-  s.author                   =  'AirBNB'
+  s.author                   =  'Airbnb'
   s.email                    =  'contact@airbnb.com'
   s.homepage                 =  'https://github.com/airbnb/zonify'
   s.version                  =  git_version
