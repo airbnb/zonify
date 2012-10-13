@@ -339,7 +339,7 @@ def merge(*trees)
           d = data.merge(acc_[type])
           acc_[type] = d
         else # Not WRR records.
-          acc_[type][:value] = (data[:value] + acc_[type][:value]).uniq.sort
+          acc_[type][:value] = (data[:value] + acc_[type][:value]).sort.uniq
         end
         acc_
       end
@@ -562,7 +562,8 @@ extend self
                     end
                   end
                 end
-          addenda = rrs ? { :value => rrs + (acc_[type][:value] or []) } : {}
+          normed = (rrs + (acc_[type][:value] or [])).sort.uniq if rrs
+          addenda = normed ? { :value => normed } : {}
           acc_[type] = data.merge(addenda)
           acc_
         end
