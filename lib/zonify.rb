@@ -433,7 +433,7 @@ end
 LDH_RE = /^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])$/
 def string_to_ldh_component(s)
   LDH_RE.match(s) ? s.downcase : s.downcase.gsub(/[^a-z0-9-]/, '-').
-                                            sub(/(^[-]+|[-]+$)/, '')[0,63]
+                                            sub(/(^[-]+|[-]+$)/, '')[0...64]
 end
 
 def string_to_ldh(s)
