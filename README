@@ -85,7 +85,7 @@ DESCRIPTION
        zonify ec2 --no-srv-singleton > ec2.yaml
        my-yaml-rewriter < ec2.yaml > adjusted.yaml
        zonify normalize amz.example.com < adjusted.yaml > normed.yaml
-       zonify diff r53.yaml normed.yaml | zonify apply
+       zonify diff --types CNAME,SRV r53.yaml normed.yaml | zonify apply
 
        The  --[no-]srv-singleton  options  also  control  creation of weighted
        round-robin CNAMEs, an infelicity in nomenclature.
