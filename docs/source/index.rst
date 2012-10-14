@@ -94,9 +94,6 @@ SRV records. They are enabled by default; but it can be useful to disable them
 for pre-processing the YAML and then adding them with ``normalize``. For
 example:
 
-The `--[no-]srv-singleton` options also control creation of weighted
-round-robin CNAMEs, an infelicity in nomenclature.
-
 .. code-block:: bash
 
   zonify r53 amz.example.com > r53.yaml
@@ -104,6 +101,9 @@ round-robin CNAMEs, an infelicity in nomenclature.
   my-yaml-rewriter < ec2.yaml > adjusted.yaml
   zonify normalize amz.example.com < adjusted.yaml > normed.yaml
   zonify diff r53.yaml normed.yaml | zonify apply
+
+The `--[no-]srv-singleton` options also control creation of weighted
+round-robin CNAMEs, an infelicity in nomenclature.
 
 Sync Policy
 -----------
