@@ -437,7 +437,14 @@ def string_to_ldh_component(s)
 end
 
 def string_to_ldh(s)
-  s.split('.').map{|s| string_to_ldh_component(s) }.join('.')
+  head, *tail = s.split('.')
+  tail_ = tail.map{|s| string_to_ldh_component(s) }
+  head_ = case head
+          when '*' then '*'
+          when nil then ''
+          else          string_to_ldh_component(head)
+          end
+  [head_, tail_].flatten.select{|c| not (c.empty? or c.nil?) }.join('.')
 end
 
 def _dot(s)
