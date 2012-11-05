@@ -148,6 +148,8 @@ extend self
 
 module Resolve
 SRV_PREFIX = '_*._*'
+MAX_RECORD_LENGTH = 64
+MAX_WRR_RECORDS = 100
 end
 
 # Records are all created with functions in this module, which ensures the
@@ -155,12 +157,13 @@ end
 module RR
 extend self
   def srv(service, name)
+    service = service[0...(Zonify::Resolve::MAX_RECORD_LENGTH-Zonify::Resolve::SRV_PREFIX.length)]
     { :type=>'SRV', :value=>"0 0 0 #{Zonify.dot_(name)}",
       :ttl=>'100',  :name=>"#{Zonify::Resolve::SRV_PREFIX}.#{service}" }
   end
   def cname(name, dns, ttl='100')
     { :type=>'CNAME', :value=>Zonify.dot_(dns),
-      :ttl=>ttl,      :name=>Zonify.dot_(name) }
+      :ttl=>ttl,      :name=>Zonify.dot_(name[0...Zonify::Resolve::MAX_RECORD_LENGTH]) }
   end
 end
 
@@ -291,11 +294,14 @@ def cname_multitudinous(tree)
     name_clipped = name.sub("#{Zonify::Resolve::SRV_PREFIX}.", '')
     info.each do |type, data|
       if 'SRV' == type and 1 < data[:value].length
+        record_count = 0
         wrrs = data[:value].inject({}) do |accumulator, rr|
-          server = Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
-          id = server.split('.').first # Always the isntance ID.
-          accumulator[id] = data.merge(:value=>[server], :weight=>"16")
-          accumulator
+          if record_count < Zonify::Resolve::MAX_WRR_RECORDS
+            server = Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
+            id = server.split('.').first # Always the isntance ID.
+            accumulator[id] = data.merge(:value=>[server], :weight=>"16")
+            record_count += 1
+          end
         end
         acc[name_clipped] = { 'CNAME' => wrrs }
       end
