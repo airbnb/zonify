@@ -1,8 +1,7 @@
 git_version = begin
-  describe = `git describe --always`
-  if $?.success?
-    stripped = describe.strip
-    /^([^-]+)-([0-9]+)-[^-]+$/.match(stripped) ? "#{$1}.#{$2}" : stripped
+  describe = `git describe --always`.strip
+  if $?.success? && /^([^-]+)-([0-9]+)-[^-]+$/.match(describe)
+    "#{$1}.#{$2}"
   else
     git_raw = `git log --pretty=format:%h | head -n1`
     $?.success? ? '0.0.0.%d' % git_raw.strip.to_i(16) : '0.0.0'
