@@ -92,18 +92,20 @@ class AWS
   end
   def instances
     ec2.servers.inject({}) do |acc, i|
-      dns = i.dns_name
-      # The default hostname for EC2 instances is derived from their internal
-      # DNS entry.
-      unless dns.nil? or dns.empty?
-        groups = (i.groups or [])
-        attrs = { :sg => groups,
-                  :tags => (i.tags or []),
-                  :dns => Zonify.dot_(dns).downcase }
-        if i.private_dns_name
-          attrs[:priv] = i.private_dns_name.split('.').first.downcase
+      if i.state != 'terminated'
+        dns = i.dns_name
+        # The default hostname for EC2 instances is derived from their internal
+        # DNS entry.
+        unless dns.nil? or dns.empty?
+          groups = (i.groups or [])
+          attrs = { :sg => groups,
+                    :tags => (i.tags or []),
+                    :dns => Zonify.dot_(dns).downcase }
+          if i.private_dns_name
+            attrs[:priv] = i.private_dns_name.split('.').first.downcase
+          end
+          acc[i.id] = attrs
         end
-        acc[i.id] = attrs
       end
       acc
     end
