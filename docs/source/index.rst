@@ -192,7 +192,7 @@ Examples
 
   # Create records under amz.example.com, with instance names appearing
   # directly under .amz.example.com.
-  zone sync amz.example.com name.tag:.
+  zonify sync amz.example.com name.tag:.
   # Similar to above but stores changes to disk for later application.
-  zone ec2/r53 amz.example.com name.tag:. > changes.yaml
+  zonify ec2/r53 amz.example.com name.tag:. > changes.yaml
 
