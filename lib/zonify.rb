@@ -95,7 +95,7 @@ class AWS
       dns = i.dns_name
       # The default hostname for EC2 instances is derived from their internal
       # DNS entry.
-      unless dns.nil? or dns.empty?
+      unless dns.nil? or dns.empty? or i.state == 'terminated'
         groups = (i.groups or [])
         attrs = { :sg => groups,
                   :tags => (i.tags or []),
