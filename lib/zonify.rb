@@ -464,12 +464,26 @@ end
 module YAML
 extend self
   def format(records, suffix='')
-   _suffix_ = Zonify._dot(Zonify.dot_(suffix))
-   entries = records.keys.sort.map do |k|
-     dumped = ::YAML.dump(k=>records[k])
-     Zonify::YAML.trim_lines(dumped).map{|ln| '  ' + ln }.join
-   end.join
-   "suffix: #{_suffix_}\nrecords:\n" + entries
+    _suffix_ = Zonify._dot(Zonify.dot_(suffix))
+    entries = records.keys.sort.map do |k|
+      if k == 'CNAME'
+        STDERR.puts(::YAML.dump(records))
+        abort "A problem was found // #{ARGV[0]}"
+      end
+      [ k + ":\n" ] + records[k].keys.sort_by{|kk| kk.to_s }.map do |kk|
+        sorted = Zonify::YAML.sorted_hash(records[k][kk])
+        lines = Zonify::YAML.trim_lines(sorted)
+        [ kk + ":\n" ] + lines.map{|ln| '  ' + ln }
+      end.flatten.map{|ln| '  ' + ln }
+    end.flatten.map{|ln| '  ' + ln }.join
+    "suffix: #{_suffix_}\nrecords:\n" + entries
+  end
+  def sorted_hash(h)
+    result = ::YAML::quick_emit(h.object_id, {}) do |out|
+      out.map("") do |map|
+        h.keys.sort_by{|k| k.to_s }.each{|k| map.add(k, h[k]) }
+      end
+    end
   end
   def read(text)
     yaml = ::YAML.load(text)

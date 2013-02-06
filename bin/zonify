@@ -185,6 +185,15 @@ def main
       Zonify::YAML.trim_lines(dumped).join.sub(/ *\[\]$/,'')
     end.join
     STDOUT.write entries
+  when 'merge'
+    parsed = ARGV[1..-1].map{|path| Zonify::YAML.read(File.read(path)) }
+    unless parsed.empty?
+      suffix, records = parsed[0]
+      rebased = parsed[1..-1].map do |sfx, recs|
+        Zonify::Mappings.rewrite(recs, [[sfx,[suffix]]])
+      end
+      STDOUT.write Zonify::YAML.format(Zonify.merge(records, *rebased), suffix)
+    end
   when 'diff'
     suffix, old_records = Zonify::YAML.read(File.read(ARGV[1]))
     new_suffix, new_records = Zonify::YAML.read(File.read(ARGV[2]))
