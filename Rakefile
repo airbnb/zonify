@@ -2,6 +2,12 @@ require 'rubygems'
 $gemspec_file = nil
 $gemspec = nil
 
+task 'README' do
+  Dir.chdir('docs') do
+    system('make', 'zonify.txt') or abort "Docs build failed."
+  end
+end
+
 task :gemspec_file do
   $gemspec_file = Dir['*.gemspec'].first unless $gemspec_file
 end
