@@ -151,7 +151,9 @@ def main
   netlogging = (ARGV.delete("-n") or ARGV.delete("--net"))
   norm       = (ARGV.delete("--srv-singleton") or not
                 ARGV.delete("--no-srv-singleton"))
+  use_iam_profile = ARGV.delete("--use-iam-profile")
   aws = CLIAWS.new
+  aws.options[:use_iam_profile] = true if use_iam_profile
   types = nil
   while i = ARGV.index('--types')
     ARGV.delete_at(i)
