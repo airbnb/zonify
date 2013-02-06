@@ -46,6 +46,10 @@ the environment variable ``AWS_REGION`` may be used with region nicknames:
 
     AWS_REGION=eu-west-1
 
+One may specify --use-iam-profile option to configure the zonify tool
+with AWS IAM-provided access and secret keys. This capability is
+available only when running the tool on an EC2 instance with an IAM role.
+
 The Zonify subcommands allow staged generation, transformation and auditing of
 entries as well as straightforward, one-step synchronization.
 
