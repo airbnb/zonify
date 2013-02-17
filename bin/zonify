@@ -18,7 +18,7 @@ class CLIAWS
     @options = {}
     @options.merge!(options) if options
     env_adapter
-    { :region                => ENV['AWS_REGION'],
+    { :region                => ENV['AWS_DEFAULT_REGION'],
       :aws_access_key_id     => (access or ENV['AWS_ACCESS_KEY']),
       :aws_secret_access_key => (secret or ENV['AWS_SECRET_KEY'])
     }.each{|k,v| @options.merge!(k=>v) if v }
@@ -27,8 +27,9 @@ class CLIAWS
     aws.respond_to?(sym)
   end
   def env_adapter
-    [ %w| AWS_ACCESS_KEY_ID     AWS_ACCESS_KEY |,
-      %w| AWS_SECRET_ACCESS_KEY AWS_SECRET_KEY | ].each do |a, b|
+    [ %w| AWS_REGION            AWS_DEFAULT_REGION |,
+      %w| AWS_ACCESS_KEY_ID     AWS_ACCESS_KEY     |,
+      %w| AWS_SECRET_ACCESS_KEY AWS_SECRET_KEY     | ].each do |a, b|
       ENV[a] = ENV[b] if ENV[b]     # Ensure new variable takes precedence.
       ENV[b] = ENV[a] unless ENV[b]
     end
