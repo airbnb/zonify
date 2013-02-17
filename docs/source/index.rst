@@ -17,6 +17,7 @@ Synopsis
     zonify apply < changes.yaml
     zonify sync <domain> <rewrite rules>*
     zonify normalize <domain>
+    zonify merge zone.v1.yaml zone.v2.yaml > merged.yaml
     zonify eips
 
 Description
@@ -89,6 +90,15 @@ entries as well as straightforward, one-step synchronization.
   ``normalize``
     Create CNAMEs for SRV records that have only one server in them and rebase
     records on to the given domain.
+
+  ``merge``
+    Merge two or more zone files, producing a zone that would be the union of
+    them, with the zone suffix set to that of the first zone file. It is okay
+    to pass one or even zero files. This can be used as a safety net, where
+    zone files are generated at regular intervals and then the last few are
+    merged, to ensure that things are deleted or adjusted only after some
+    delay. (It can be useful when using a script to post-process the generated
+    zone file.)
 
   ``eips``
     List all Elastic IPs and DNS entries that map to them.
