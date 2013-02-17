@@ -39,9 +39,12 @@ variables to select regions and specify credentials:
     AWS_ACCESS_KEY AWS_ACCESS_KEY_ID
     AWS_SECRET_KEY AWS_SECRET_ACCESS_KEY
     EC2_URL
+    AWS_DEFAULT_REGION
 
-These variables are used by many AWS libraries and tools. As a convenience,
-the environment variable ``AWS_REGION`` may be used with region nicknames:
+These variables are used by many AWS libraries and tools. The legacy Zonify
+environment variable, ``AWS_REGION``, continues to be supported. It works
+exactly like the ``AWS_DEFAULT_REGION`` variable from the AWS Python CLI,
+allowing one to specify a region nickname for use with regionalized services:
 
 .. code-block:: text
 
