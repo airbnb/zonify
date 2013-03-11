@@ -112,7 +112,7 @@ class AWS
   def load_balancers
     elb.load_balancers.map do |elb|
       { :instances => elb.instances,
-        :prefix    => Zonify.cut_down_elb_name(elb.dns_name) }
+        :prefix    => Zonify.cut_down_elb_name(elb.dns_name.downcase) }
     end
   end
   def eips
