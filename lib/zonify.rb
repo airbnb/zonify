@@ -425,7 +425,7 @@ def read_octal(s)
   acc
 end
 
-ELB_DNS_RE = /^([a-z0-9-]+)-[^-.]+[.].+$/
+ELB_DNS_RE = /^([a-zA-Z0-9-]+)-[^-.]+[.].+$/
 def cut_down_elb_name(s)
   $1 if ELB_DNS_RE.match(s)
 end
