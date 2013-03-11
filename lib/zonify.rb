@@ -111,7 +111,7 @@ class AWS
   def load_balancers
     elb.load_balancers.map do |elb|
       { :instances => elb.instances,
-        :prefix    => Zonify.cut_down_elb_name(elb.dns_name) }
+        :prefix    => Zonify.cut_down_elb_name(elb.dns_name.downcase) }
     end
   end
   def eips
@@ -425,7 +425,7 @@ def read_octal(s)
   acc
 end
 
-ELB_DNS_RE = /^([a-zA-Z0-9-]+)-[^-.]+[.].+$/
+ELB_DNS_RE = /^([a-z0-9-]+)-[^-.]+[.].+$/
 def cut_down_elb_name(s)
   $1 if ELB_DNS_RE.match(s)
 end
