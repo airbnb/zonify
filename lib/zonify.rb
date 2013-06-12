@@ -85,7 +85,12 @@ class AWS
             acc
           end
         end
-        r53.change_resource_record_sets(zone.id, rekeyed, :comment=>comment)
+
+        begin
+          r53.change_resource_record_sets(zone.id, rekeyed, :comment=>comment)
+        rescue Exception => e
+          STDERR.puts e
+        end
       end
     end
     filtered
