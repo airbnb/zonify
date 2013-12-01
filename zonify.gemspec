@@ -9,9 +9,9 @@ git_version = begin
 end
 @spec = Gem::Specification.new do |s|
   s.name                     =  'zonify'
-  s.author                   =  'Airbnb'
-  s.email                    =  'contact@airbnb.com'
-  s.homepage                 =  'https://github.com/airbnb/zonify'
+  s.author                   =  'Jason Dusek'
+  s.email                    =  'oss@solidsnack.be'
+  s.homepage                 =  'https://github.com/solidsnack/zonify'
   s.version                  =  git_version
   s.summary                  =  'Generate DNS information from EC2 metadata.'
   s.description              =  <<DESC
