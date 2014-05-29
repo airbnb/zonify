@@ -171,8 +171,8 @@ def zone(hosts, elbs)
   host_records = hosts.map do |id,info|
     name = "#{id}.inst."
     priv = "#{info[:priv]}.priv."
-    [ Zonify::RR.cname(name, info[:dns], '86400'),
-      Zonify::RR.cname(priv, info[:dns], '86400'),
+    [ Zonify::RR.cname(name, info[:dns], '600'),
+      Zonify::RR.cname(priv, info[:dns], '600'),
       Zonify::RR.srv('inst.', name) ] +
     info[:tags].map do |tag|
       k, v = tag
