@@ -475,6 +475,8 @@ extend self
     yaml = ::YAML.load(text)
     if yaml['suffix'] and yaml['records']
       [yaml['suffix'], yaml['records']]
+    elsif yaml['suffix']
+      [yaml['suffix'], {}]
     end
   end
   def trim_lines(yaml)
