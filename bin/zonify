@@ -189,7 +189,7 @@ def main
     qualified = Zonify::Mappings.rewrite(new_records, [[new_suffix,[suffix]]])
     changes = Zonify.diff(qualified, old_records, (types or %w| * |))
     STDERR.puts(display(changes)) unless quiet
-    STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
+    STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)).join)
   when 'sync'
     suffix = ARGV[1]
     check_name(suffix)
@@ -214,7 +214,7 @@ def main
     _, old_records = aws.route53_zone(suffix)
     changes = Zonify.diff(mapped, old_records, (types or %w| CNAME SRV |))
     STDERR.puts(display(changes)) unless quiet
-    STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)))
+    STDOUT.write(Zonify::YAML.trim_lines(YAML.dump(changes)).join)
   when 'summarize'
     handle = ARGV[1] ? File.open(ARGV[1]) : STDIN
     changes = yaml_with_default(handle, [])
