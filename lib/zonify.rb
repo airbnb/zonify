@@ -488,10 +488,8 @@ extend self
   end
   def read(text)
     yaml = ::YAML.load(text)
-    if yaml['suffix'] and yaml['records']
-      [yaml['suffix'], yaml['records']]
-    elsif yaml['suffix']
-      [yaml['suffix'], {}]
+    if yaml['suffix']
+      [yaml['suffix'], (yaml['records'] or {})]
     end
   end
   def trim_lines(yaml)
