@@ -92,7 +92,7 @@ class AWS
   end
   def instances
     ec2.servers.inject({}) do |acc, i|
-      dns = i.dns_name
+      dns = (i.dns_name or i.private_dns_name)
       # The default hostname for EC2 instances is derived from their internal
       # DNS entry.
       terminal_states = %w| terminated shutting-down |
