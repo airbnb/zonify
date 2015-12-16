@@ -154,8 +154,16 @@ def main
   norm       = (ARGV.delete("--srv-singleton") or not
                 ARGV.delete("--no-srv-singleton"))
   use_iam_profile = ARGV.delete("--use-iam-profile")
+  zone = nil
+  while i = ARGV.index('--zone')
+    raise 'Zone already set...' if zone
+    ARGV.delete_at(i)
+    zone = ARGV[i]
+    ARGV.delete_at(i)
+  end
   aws = CLIAWS.new
   aws.options[:use_iam_profile] = true if use_iam_profile
+  aws.options[:zone] = zone if zone
   types = nil
   while i = ARGV.index('--types')
     ARGV.delete_at(i)

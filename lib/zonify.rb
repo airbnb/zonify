@@ -19,12 +19,14 @@ class AWS
     def create(options)
       options_ec2 = options.merge( :provider=>'AWS',
                                    :connection_options=>{:nonblock=>false} )
+      options_ec2.delete(:zone)
       ec2 = Proc.new{|| Fog::Compute.new(options_ec2) }
       options_elb = options_ec2.dup.delete_if{|k, _| k == :provider }
       elb = Proc.new{|| Fog::AWS::ELB.new(options_elb) }
       options_r53 = options_ec2.dup.delete_if{|k, _| k == :region }
       r53 = Proc.new{|| Fog::DNS.new(options_r53) }
-      Zonify::AWS.new(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
+      options.merge!(:ec2_proc=>ec2, :elb_proc=>elb, :r53_proc=>r53)
+      Zonify::AWS.new(options)
     end
   end
   attr_reader :ec2_proc, :elb_proc, :r53_proc
@@ -35,6 +37,7 @@ class AWS
     @ec2_proc = opts[:ec2_proc]
     @elb_proc = opts[:elb_proc]
     @r53_proc = opts[:r53_proc]
+    @zone     = opts[:zone]
   end
   def ec2
     @ec2 ||= @ec2_proc.call
@@ -56,7 +59,11 @@ class AWS
   def route53_zone(suffix)
     suffix_ = Zonify.dot_(suffix)
     relevant_zone = r53.zones.select do |zone|
-      suffix_.end_with?(zone.domain)
+      if @zone
+        @zone == zone.id
+      else
+        suffix_.end_with?(zone.domain)
+      end
     end.sort_by{|zone| zone.domain.length }.last
     if relevant_zone
       relevant_records = relevant_zone.records.all!.map do |rr|
@@ -602,4 +609,3 @@ end
 RRTYPE_RE = /^([*]|[A-Z0-9-]+)$/
 
 end
-
