@@ -16,11 +16,12 @@ class CLIAWS
   attr_reader :options
   def initialize(access=nil, secret=nil)
     @options = {}
-    @options.merge!(options) if options
     env_adapter
-    { :region                => ENV['AWS_DEFAULT_REGION'],
-      :aws_access_key_id     => (access or ENV['AWS_ACCESS_KEY']),
-      :aws_secret_access_key => (secret or ENV['AWS_SECRET_KEY'])
+    auth = { :aws_access_key_id     => (access or ENV['AWS_ACCESS_KEY']),
+             :aws_secret_access_key => (secret or ENV['AWS_SECRET_KEY']) }
+    auth = { :use_iam_profile       => true } unless auth.values.all?
+    @options.merge!(auth)
+    { :region                       => ENV['AWS_DEFAULT_REGION'],
     }.each{|k,v| @options.merge!(k=>v) if v }
   end
   def respond_to?(sym)
