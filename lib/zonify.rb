@@ -77,9 +77,19 @@ class AWS
   # Apply a changeset to the records in Route53. The records must all be under
   # the same zone and suffix.
   def apply(changes, comment='Synced with Zonify tool.')
-    # Dumb way to do this because I can not figure out #reject!
-    keep = changes.select{|c| c[:value].length <= 100 }
-    filtered = changes.select{|c| c[:value].length > 100 }
+    filtered = changes.select{|change| change[:value].length > 100 }
+    # For all the SRV records that were considered too long, get the names of
+    # the associated weighted CNAMEs.
+    filtered_correlates = filtered.map do |change|
+      case change[:name]
+      when /^_[*][.]_[*][.]/
+        change[:name][6, change[:name].length]
+      end
+    end.compact
+    keep = changes.select do |change|
+      change[:value].length <= 100 and not
+        filtered_correlates.include?(change[:name])
+    end
     unless keep.empty?
       suffix  = keep.first[:name] # Works because of longest submatch rule.
       zone, _ = route53_zone(suffix)
@@ -92,7 +102,11 @@ class AWS
             acc
           end
         end
-        r53.change_resource_record_sets(zone.id, rekeyed, :comment=>comment)
+        begin
+          r53.change_resource_record_sets(zone.id, rekeyed, :comment=>comment)
+        rescue Fog::Errors::Error => e
+          STDERR.puts("Failed with some records, due to:\n#{e}")
+        end
       end
     end
     filtered
@@ -301,7 +315,7 @@ def cname_multitudinous(tree)
       if 'SRV' == type and 1 < data[:value].length
         wrrs = data[:value].inject({}) do |accumulator, rr|
           server = Zonify.dot_(rr.sub(/^([^ ]+ +){3}/, '').strip)
-          id = server.split('.').first # Always the isntance ID.
+          id = server.split('.').first # Always the instance ID.
           accumulator[id] = data.merge(:value=>[server], :weight=>"16")
           accumulator
         end
