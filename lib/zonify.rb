@@ -19,6 +19,7 @@ class AWS
     def create(options)
       options_ec2 = options.merge( :provider=>'AWS',
                                    :connection_options=>{:nonblock=>false} )
+      options_ec2.delete(:reverse)
       options_ec2.delete(:zone)
       ec2 = Proc.new{|| Fog::Compute.new(options_ec2) }
       options_elb = options_ec2.dup.delete_if{|k, _| k == :provider }
@@ -37,7 +38,11 @@ class AWS
     @ec2_proc = opts[:ec2_proc]
     @elb_proc = opts[:elb_proc]
     @r53_proc = opts[:r53_proc]
+    @reverse  = opts[:reverse]
     @zone     = opts[:zone]
+  end
+  def reverse_public_ip?
+    !!@reverse
   end
   def ec2
     @ec2 ||= @ec2_proc.call
@@ -113,7 +118,12 @@ class AWS
   end
   def instances
     ec2.servers.inject({}) do |acc, i|
-      dns = (i.dns_name or i.private_dns_name)
+      dns = if reverse_public_ip? and not i.public_ip_address.nil?
+              pub = i.public_ip_address
+              dns = "ec2-#{pub.gsub(".", "-")}.compute-1.amazonaws.com"
+            else
+              i.dns_name or i.private_dns_name
+            end
       # The default hostname for EC2 instances is derived from their internal
       # DNS entry.
       terminal_states = %w| terminated shutting-down |

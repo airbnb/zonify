@@ -14,8 +14,8 @@ require 'zonify'
 
 class CLIAWS
   attr_reader :options
-  def initialize(access=nil, secret=nil)
-    @options = {}
+  def initialize(access=nil, secret=nil, options={})
+    @options = options
     env_adapter
     auth = { :aws_access_key_id     => (access or ENV['AWS_ACCESS_KEY']),
              :aws_secret_access_key => (secret or ENV['AWS_SECRET_KEY']) }
@@ -149,11 +149,12 @@ def main
   end
   #confirm = [ARGV.delete("-c"), ARGV.delete("--confirm")].any?
   confirm = false
-  quiet      = (ARGV.delete("-q") or ARGV.delete("--quiet"))
-  netlogging = (ARGV.delete("-n") or ARGV.delete("--net"))
-  norm       = (ARGV.delete("--srv-singleton") or not
-                ARGV.delete("--no-srv-singleton"))
-  use_iam_profile = ARGV.delete("--use-iam-profile")
+  quiet      = (ARGV.delete('-q') or ARGV.delete('--quiet'))
+  netlogging = (ARGV.delete('-n') or ARGV.delete('--net'))
+  norm       = (ARGV.delete('--srv-singleton') or not
+                ARGV.delete('--no-srv-singleton'))
+  use_iam_profile = ARGV.delete('--use-iam-profile')
+  reverse_public_ip = ARGV.delete('--reverse-public-ip')
   zone = nil
   while i = ARGV.index('--zone')
     raise 'Zone already set...' if zone
@@ -162,6 +163,7 @@ def main
     ARGV.delete_at(i)
   end
   aws = CLIAWS.new
+  aws.options[:reverse] = true if reverse_public_ip
   aws.options[:use_iam_profile] = true if use_iam_profile
   aws.options[:zone] = zone if zone
   types = nil
