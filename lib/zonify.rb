@@ -502,7 +502,7 @@ extend self
   end
   def sorted_hash(h)
     result = ::YAML::quick_emit(h.object_id, {}) do |out|
-      out.map("") do |map|
+      out.map do |map|
         h.keys.sort_by{|k| k.to_s }.each{|k| map.add(k, h[k]) }
       end
     end
