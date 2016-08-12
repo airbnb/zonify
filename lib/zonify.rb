@@ -391,8 +391,11 @@ def diff(new_records, old_records, types=['CNAME','SRV'])
     v.map do |type, data|
       if types.member? '*' or types.member? type
         old_data = ((old and old[type]) or {})
-        unless Zonify.compare_records(old_data, data)
-          Zonify.hoist(data, name, type, 'CREATE')
+        unless type == 'CNAME' and not types.member? 'A' and
+               old and old.member? 'A'
+          unless Zonify.compare_records(old_data, data)
+            Zonify.hoist(data, name, type, 'CREATE')
+          end
         end
       end
     end.compact
