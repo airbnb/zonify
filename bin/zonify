@@ -74,8 +74,13 @@ def display(changes)
     'No changes; nothing to do.'
   else
     summary = changes.inject({}) do |acc, change|
-      name, type, set = [change[:name], change[:type], change[:set_identifier]]
-      key = "#{name} #{type}" + ( set ? " (#{set})" : "" )
+      name, type, set, health_check_id = [change[:name],
+                                          change[:type],
+                                          change[:set_identifier],
+                                          change[:health_check_id]]
+      key = "#{name} #{type}"
+      key += ( set ? " (#{set})" : "" )
+      key += ( health_check_id ? " (#{health_check_id})" : "")
       acc[key] ||= []
       acc[key]  << change[:action]
       acc

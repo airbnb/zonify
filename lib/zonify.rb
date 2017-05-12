@@ -239,9 +239,11 @@ end
 def tree(records)
   records.inject({}) do |acc, record|
     name, type, ttl, value,
-    weight, set           = [ record[:name],   record[:type],
+    weight, set,
+    health_check_id       = [ record[:name],   record[:type],
                               record[:ttl],    record[:value],
-                              record[:weight], record[:set_identifier] ]
+                              record[:weight], record[:set_identifier],
+                              record[:health_check_id] ]
     reference = acc[name]       ||= {}
     reference = reference[type] ||= {}
     reference = reference[set]  ||= {} if set
@@ -249,6 +251,7 @@ def tree(records)
     reference[:ttl]               = ttl
     reference[:value]             = appended.sort.uniq
     reference[:weight]            = weight if weight
+    reference[:health_check_id]   = health_check_id if health_check_id
     acc
   end
 end
@@ -340,15 +343,18 @@ end
 def tree_from_right_aws(records)
   records.inject({}) do |acc, record|
     name, type, ttl, value,
-    weight, set           = [ record[:name],   record[:type],
+    weight, set,
+    health_check_id       = [ record[:name],   record[:type],
                               record[:ttl],    record[:value],
-                              record[:weight], record[:set_identifier] ]
+                              record[:weight], record[:set_identifier],
+                              record[:health_check_id] ]
     reference = acc[name]       ||= {}
     reference = reference[type] ||= {}
     reference = reference[set]  ||= {} if set
     reference[:ttl]               = ttl
     reference[:value]             = (value or [])
     reference[:weight]            = weight if weight
+    reference[:health_check_id]   = health_check_id if health_check_id
     acc
   end
 end
