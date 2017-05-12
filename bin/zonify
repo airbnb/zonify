@@ -14,11 +14,12 @@ require 'zonify'
 
 class CLIAWS
   attr_reader :options
-  def initialize(access=nil, secret=nil, options={})
+  def initialize(access=nil, secret=nil, session_token=nil, options={})
     @options = options
     env_adapter
     auth = { :aws_access_key_id     => (access or ENV['AWS_ACCESS_KEY']),
-             :aws_secret_access_key => (secret or ENV['AWS_SECRET_KEY']) }
+             :aws_secret_access_key => (secret or ENV['AWS_SECRET_KEY']),
+             :aws_session_token     => (session_token or ENV['AWS_SESSION_TOKEN']) }
     auth = { :use_iam_profile       => true } unless auth.values.all?
     @options.merge!(auth)
     { :region                       => ENV['AWS_DEFAULT_REGION'],
